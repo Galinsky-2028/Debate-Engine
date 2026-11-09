@@ -2,12 +2,14 @@ import "server-only";
 import {transaction} from "./db";
 import {HttpError} from "./http";
 import {recordPublishedContinuationObligations} from "./obligations";
+import {preserveQualifyingSequence} from "./sequence-manifests";
+import {effectiveBranchRules} from "./branch-rules";
 import {formatProblems,type DebateModality} from "../../packages/domain/modalities";
 import {verifiedCandidateSource,validateReference,type ContributionSource,type AnchoredQuestion,type AnchoredAnswer} from "./contribution-source";
 
 
 export type ContinuationInput={debateId:string;candidateId:string;authSubject:string;parentSubmissionId:string;
-  source:ContributionSource;questions:AnchoredQuestion[];answers:AnchoredAnswer[];draftId:string;
+  source:ContributionSource;questions:AnchoredQuestion[];answers:AnchoredAnswer[];draftId:string;rulesVersion?:number;
 };
 
 export async function publishContinuation(input:ContinuationInput){
@@ -22,7 +24,6 @@ export async function publishContinuation(input:ContinuationInput){
    "SELECT originator_candidacy_id,election_id,max_response_seconds,reply_window_hours,allowed_modalities FROM debates WHERE id=$1 AND status='published' FOR UPDATE",[input.debateId]);
   if(!discussion.rowCount)throw new HttpError(404,"Published debate not found.");
   const rule=discussion.rows[0];
-  if(!rule.allowed_modalities.includes(input.source.modality))throw new HttpError(400,"This debate does not permit that medium.");
   const actor=await verifiedCandidateSource(db,{candidateId:input.candidateId,authSubject:input.authSubject,source:input.source},rule.election_id);
   const size=input.source.modality==="writing"?input.source.writtenContent!.length:actor.duration!;
   const mappedQuestions=input.questions.map(q=>validateReference(input.source.modality,q,size));
@@ -47,19 +48,23 @@ export async function publishContinuation(input:ContinuationInput){
     const allowed=[rule.originator_candidacy_id,b.rows[0].responder_candidacy_id];
     if(!allowed.includes(input.candidateId))throw new HttpError(403,"Only the two branch participants may continue their exchange.");
   }
+  if(!branchId)throw new HttpError(500,"A continuation requires a debate branch.");
+  const activeRules=await effectiveBranchRules(db,branchId);
+  if((input.rulesVersion??1)!==activeRules.revision)throw new HttpError(409,"The branch rules changed. Review the current rules and prepare a new draft before publishing.");
+  if(!activeRules.allowed_modalities.includes(input.source.modality))throw new HttpError(400,"The current branch rules do not permit that medium.");
   // Always identify the questions in the immediately preceding video.
   const pending=await db.query<{id:string}>("SELECT id FROM questions WHERE submission_id=$1",[prev.id]);
   const allowedQuestions=new Set(pending.rows.map(q=>q.id));
   if(input.answers.some(a=>!allowedQuestions.has(a.questionId)))throw new HttpError(400,"Answers must refer to questions in the immediately preceding video.");
   if((await db.query("SELECT 1 FROM submissions WHERE branch_id=$1 AND parent_submission_id=$2 AND kind<>'correction'",[branchId,prev.id])).rowCount)
     throw new HttpError(409,"A response already continues this predecessor on the branch.");
-  const formatIssues=formatProblems({modality:input.source.modality,allowed:rule.allowed_modalities,durationSeconds:actor.duration,
-   writtenContent:input.source.writtenContent,maxResponseSeconds:Number(rule.max_response_seconds),questionCount:input.questions.length,firstResponse:kind==="response"});
+  const formatIssues=formatProblems({modality:input.source.modality,allowed:activeRules.allowed_modalities,durationSeconds:actor.duration,
+   writtenContent:input.source.writtenContent,maxResponseSeconds:Number(activeRules.max_response_seconds),questionCount:input.questions.length,firstResponse:kind==="response"});
   if((await db.query("SELECT 1 FROM submissions WHERE media_asset_id=$1",[input.source.mediaAssetId])).rowCount)
     throw new HttpError(409,"Original media already belongs to another public contribution.");
   const row=await db.query<{id:string}>(
-   "INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,media_asset_id,kind,modality,written_content,format_issues,origin_draft_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10) RETURNING id",
-   [input.debateId,branchId,input.candidateId,prev.id,input.source.mediaAssetId,kind,input.source.modality,input.source.writtenContent,JSON.stringify(formatIssues),input.draftId]);
+   "INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,media_asset_id,kind,modality,written_content,format_issues,origin_draft_id,rules_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11) RETURNING id",
+   [input.debateId,branchId,input.candidateId,prev.id,input.source.mediaAssetId,kind,input.source.modality,input.source.writtenContent,JSON.stringify(formatIssues),input.draftId,activeRules.revision]);
   const sid=row.rows[0].id;
   for(let i=0;i<input.questions.length;i++){
    const q=input.questions[i],pos=mappedQuestions[i];
@@ -75,11 +80,12 @@ export async function publishContinuation(input:ContinuationInput){
   await recordPublishedContinuationObligations(db,{
     debateId:input.debateId,branchId,sourceSubmissionId:sid,parentSubmissionId:prev.id,
     publishingCandidacyId:input.candidateId,obligatedCandidacyId:prev.candidacy_id,
-    publishedAt:published.rows[0].published_at,replyWindowHours:rule.reply_window_hours,
+    publishedAt:published.rows[0].published_at,replyWindowHours:activeRules.reply_window_hours,
     opensReview:input.answers.length>0,opensReply:input.questions.length>0,
   });
   await db.query("INSERT INTO publication_events(debate_id,branch_id,actor_candidacy_id,kind,object_id,payload) VALUES($1,$2,$3,'contribution_published',$4,$5::jsonb)",[input.debateId,branchId,input.candidateId,sid,JSON.stringify({parentSubmissionId:prev.id,formatIssues,modality:input.source.modality})]);
   await db.query("INSERT INTO audit_events(actor_account_id,action,target_kind,target_id) VALUES($1,'contribution_published','submission',$2)",[actor.account_id,sid]);
+  await preserveQualifyingSequence(db,branchId);
   return {submissionId:sid,branchId,published:true,qualifyingFormat:formatIssues.length===0,formatIssues};
  });
 }

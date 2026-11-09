@@ -14,7 +14,7 @@ A reusable, candidate-neutral platform for asynchronous, policy-centered debates
 
 ## Development status
 
-**Foundation in progress. Not launched.** No candidate's actual debate content, invitations, endorsements, identities, or policy agreement have been published. A passing CI build alone does not establish production readiness.
+**Development implementation; not launched.** No candidate's actual debate content, invitations, endorsements, identities, or policy agreement have been published. A passing CI build alone does not establish production readiness.
 
 ## Local development
 
@@ -29,6 +29,8 @@ npm run build
 ```
 
 Copy `.env.example` to `.env.local` when Neon has been intentionally configured. Never commit secrets. Read-only public pages must never fabricate data when no debates have been published.
+
+The current local validation and source changes are documented in [the handoff](docs/CURRENT_STATUS_AND_HANDOFF.md). For a disposable two-candidate browser pilot, see [integration testing](docs/INTEGRATION_TESTING.md).
 
 ## Core publication distinction
 

@@ -1,4 +1,4 @@
-> **Canonical PR roadmap:** [`registry/roadmap.json`](../registry/roadmap.json). The full detailed plan below remains intact; all new PR milestones, mappings and total counts are maintained in the canonical registry. Pending multimodal, private AI-assessment and repository-rename proposals are not yet approved.
+> **Canonical PR roadmap:** [`registry/prs.json`](../registry/prs.json). The full detailed plan below remains intact; all new PR milestones, mappings and total counts are maintained in the canonical registry. Pending multimodal, private AI-assessment and repository-rename proposals are not yet approved.
 
 # Public Debate Engine
 ## Full development plan and implementation handoff
@@ -54,7 +54,7 @@ The user's unfinished sentence, "When a candidate uploads a video, whether the o
 
 ## 3. Repository and product organization
 
-The actual neutral repository is [`neophilism/Debate-Engine`](https://github.com/neophilism/Debate-Engine). The development preview is hosted at `https://public-debate-engine-preview.onrender.com`, backed by the supplied Neon project `rapid-moon-08277391`. The full product remains candidate-neutral; no candidate-specific source video is hardcoded here.
+The actual neutral repository is [`neophilism/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine). The development preview is hosted at `https://public-debate-engine-preview.onrender.com`, backed by the supplied Neon project `rapid-moon-08277391`. The full product remains candidate-neutral; no candidate-specific source video is hardcoded here.
 
 Build a modular monolith, not a fleet of microservices. The engine can contain its neutral dedicated reference interface because that interface serves all offices and candidates. Candidate-branded integrations belong in a downstream repository, such as the existing `Galinsky-2028` campaign site, consuming a versioned SDK/API or embed.
 
@@ -470,7 +470,7 @@ docs/security-and-E2EESA-applicability.md
 docs/accessibility-test-plan.md
 docs/acceptance-evidence.md
 docs/agent-handoff.md
-registry/roadmap.json
+registry/prs.json
 .env.example                   Placeholders only, never working secrets
 ```
 
@@ -501,7 +501,7 @@ These sources ground current infrastructure constraints and existing repository 
 
 ## Approved October 11, 2026 expansion — multimodal public debate and private Debate Assistant
 
-**Approval:** The owner approved PDE-31–PDE-44; the authoritative total is **44 planned work units** in [`registry/roadmap.json`](../registry/roadmap.json). The original 30 items remain fully preserved. Actual PR numbers and CI acceptance are linked in the registry, not inferred from milestone ordinals.
+**Approval:** The owner approved PDE-31–PDE-44; the authoritative total is **44 planned work units** in [`registry/prs.json`](../registry/prs.json). The original 30 items remain fully preserved. Actual PR numbers and CI acceptance are linked in the registry, not inferred from milestone ordinals.
 
 ### Universal media protocol
 

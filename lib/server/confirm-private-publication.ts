@@ -63,7 +63,7 @@ export async function confirmPrivatePublication(draftId:string,authSubject:strin
    const answers=payload.answers.map(x=>{const v=readAnswerItem(record(x),modality);return {...v,questionId:uuid(v.questionId,"questionId")};});
    publication=await publishContinuation({
     draftId:d.id,candidateId:d.candidacy_id,authSubject,debateId:uuid(d.debate_id,"debateId"),
-    parentSubmissionId:uuid(d.parent_submission_id,"parentSubmissionId"),source,questions,answers
+    parentSubmissionId:uuid(d.parent_submission_id,"parentSubmissionId"),source,questions,answers,rulesVersion:Number(payload.rulesVersion??1)
    });
   }
   await database().query(

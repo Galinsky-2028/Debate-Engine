@@ -7,12 +7,14 @@
 import https from "node:https";
 import http from "node:http";
 import {readFile} from "node:fs/promises";
+import {isPilotRunner,isDisposableLocalPilot} from "./pilot-scope.mjs";
 const expected="postgresql://debate_ci:test_only_password@localhost:5432/debate_ci";
-if(process.env.GITHUB_ACTIONS!=="true"||process.env.PDE_CI_PILOT_RUN!=="true"||
+if(!isPilotRunner()||
    process.env.DATABASE_URL!==expected||process.env.NEON_AUTH_BASE_URL)
  throw Error("Local HTTPS test proxy cannot run outside isolated CI.");
-const cert=await readFile("/tmp/pde-ci-tls-cert.pem");
-const key=await readFile("/tmp/pde-ci-tls-key.pem");
+const local=isDisposableLocalPilot();
+const cert=await readFile(local?process.env.PDE_LOCAL_PILOT_TLS_CERT:"/tmp/pde-ci-tls-cert.pem");
+const key=await readFile(local?process.env.PDE_LOCAL_PILOT_TLS_KEY:"/tmp/pde-ci-tls-key.pem");
 const server=https.createServer({cert,key},(request,response)=>{
  const upstream=http.request({
   hostname:"127.0.0.1",port:3100,method:request.method,path:request.url,

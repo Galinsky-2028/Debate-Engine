@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 const base=process.env.PDE_BROWSER_URL;
 if(!base||!/^(http:\/\/127\.0\.0\.1(:[0-9]+)?|https:\/\/[a-z0-9.-]+)\/?$/.test(base))
  throw Error("Set an explicit local or HTTPS test origin in PDE_BROWSER_URL.");
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.PDE_CHROMIUM_EXECUTABLE?{executablePath:process.env.PDE_CHROMIUM_EXECUTABLE}:{})});
 const context=await browser.newContext({viewport:{width:1365,height:860},locale:"en-US"});
 const page=await context.newPage();
 const failures=[];
@@ -56,11 +56,22 @@ try{
  // Automated WCAG 2.0/2.1/2.2 A and AA checks on the built application.
  // These do not replace manual testing by users of assistive technology.
  const wcagTags=["wcag2a","wcag2aa","wcag21a","wcag21aa","wcag22a","wcag22aa"];
+ const auditPaths=["/","/debates","/candidates","/protocol","/sign-in"];
+ const debateId=process.env.PDE_BROWSER_DEBATE_ID;
+ if(debateId){
+  assert.match(debateId,/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i);
+  auditPaths.push('/debates/'+debateId);
+ }
  const accessibilityFailures=[];
  for(const width of [1365,375]){
   await page.setViewportSize({width,height:860});
-  for(const path of ["/","/debates","/candidates","/protocol","/sign-in"]){
+  for(const path of auditPaths){
    await visit(path);
+   if(debateId&&path==='/debates/'+debateId){
+    await page.getByRole('region',{name:'Mutually approved branch rules'}).getByText(/Current version/).waitFor();
+    const scroll=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth}));
+    assert.ok(scroll.width<=scroll.viewport+1,'Published debate overflows the viewport at '+width+'px');
+   }
    const result=await new AxeBuilder({page}).withTags(wcagTags).analyze();
    for(const violation of result.violations){
     const targets=violation.nodes.map(node=>node.target.join(" ")).slice(0,7).join(", ");
@@ -69,7 +80,7 @@ try{
   }
  }
  assert.deepEqual(accessibilityFailures,[],"Automated WCAG A/AA violations:\n"+accessibilityFailures.join("\n"));
- console.log("PASS: automated WCAG 2.0/2.1/2.2 A/AA rules on five public pages at two viewport widths");
+ console.log(`PASS: automated WCAG 2.0/2.1/2.2 A/AA rules on ${auditPaths.length} public pages at two viewport widths`);
  assert.deepEqual(failures,[],"No uncaught browser runtime exceptions are permitted.");
  console.log("PASS: desktop and mobile Chromium public navigation, archive filters, keyboard focus and account form");
 }finally{

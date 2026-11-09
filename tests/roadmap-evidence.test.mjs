@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {reconcileRoadmap} from "../scripts/sync-roadmap-evidence.mjs";
+import {reconcileRoadmap,reconcileCanonicalRegistry} from "../scripts/sync-roadmap-evidence.mjs";
 const meta={repository:"acme/project",planVerified:true,plannedPrCount:2};
 const roadmap={...meta,production_ready:false,operationalAcceptance:{securityReview:"pending"},milestones:[
  {id:"PDE-36",title:"Written revisions",state:"approved_not_started",implementation:"not_started",acceptance:"pending",acceptanceNote:"Browser pilot pending",pullRequests:[],openPullRequests:[]},
@@ -26,4 +26,19 @@ test("reconciliation is idempotent and cannot change denominator",()=>{
  const first=reconcileRoadmap(roadmap,registry).roadmap;
  assert.equal(reconcileRoadmap(first,registry).changed,false);
  assert.throws(()=>reconcileRoadmap({...roadmap,plannedPrCount:3},registry));
+});
+test('canonical reconciliation updates units without recreating a retired roadmap or duplicating PR links',()=>{
+ const canonical={...registry,production_ready:false,operationalAcceptance:{securityReview:'pending'},units:roadmap.milestones.map((m,i)=>({...m,prs:registry.units[i].prs}))};
+ const first=reconcileCanonicalRegistry(canonical);
+ assert.equal(first.registry.units[0].implementation,'partial');
+ assert.equal(first.registry.units[0].acceptance,'pending');
+ assert.deepEqual(first.registry.units[0].openPullRequests,['https://github.com/acme/project/pull/8']);
+ assert.equal(Object.hasOwn(first.registry.units[0],'pullRequests'),true);
+ const withoutLinks={...canonical,units:canonical.units.map(({pullRequests,...u})=>u)};
+ const next=reconcileCanonicalRegistry(withoutLinks).registry;
+ assert.equal(Object.hasOwn(next.units[0],'pullRequests'),false);
+ assert.equal(reconcileCanonicalRegistry(next).changed,false);
+ assert.equal(next.production_ready,false);
+ assert.equal(next.operationalAcceptance.securityReview,'pending');
+ assert.equal(Object.hasOwn(next,'milestones'),false);
 });

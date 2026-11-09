@@ -21,6 +21,14 @@
 
 .written-publication{border:1px solid #b4bdb9;background:#fcfbf7;color:#23303b;padding:28px;margin:16px 0;max-height:680px;overflow:auto}
 .speech-body{font-family:Georgia,serif;font-size:18px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
+.qualifying-player .written-publication p{color:#33424b}
+.two-record-views p{color:#4c5d67}
+.submission-item .assessment p{color:#43525b}
+.policy-digest{color:#53616a}
+.policy-branch{flex-wrap:wrap}
+.policy-branch select{flex:1 1 220px;min-width:0;max-width:100%}
+.branch-rules>label{display:flex;flex-direction:column;gap:8px;margin:20px 0;font-size:14px;font-weight:600}
+.branch-rules select{width:100%;min-width:0;max-width:100%;padding:12px;background:#fff;border:1px solid #b8c0bc}
 .audio-publication{margin:20px 0;background:#e5e2d9;color:#253440;padding:18px}
 .audio-publication audio{width:100%;min-height:48px}
 .featured-video .written-publication,.qualifying-player .written-publication{color:#253440}

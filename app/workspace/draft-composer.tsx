@@ -6,7 +6,7 @@ type Mode="video"|"audio"|"writing";
 type Candidate={id:string;public_name:string;office_title:string;election_id:string;verification_status:string};
 type Contribution={id:string;candidate_name:string;kind:string;candidacy_id:string;branch_id:string|null;parent_submission_id:string|null};
 type Question={id:string;submission_id:string;question_text:string};
-type PublicDebate={debate:{title:string;election_id:string;originator_candidacy_id:string;allowed_modalities:Mode[];max_response_seconds:number;reply_window_hours:number|null};submissions:Contribution[];questions:Question[];branches:Array<{id:string;responder_candidacy_id:string}>};
+type PublicDebate={debate:{title:string;election_id:string;originator_candidacy_id:string;allowed_modalities:Mode[];max_response_seconds:number;reply_window_hours:number|null};submissions:Contribution[];questions:Question[];branches:Array<{id:string;responder_candidacy_id:string;rules_version:number;max_response_seconds:number;reply_window_hours:number|null;allowed_modalities:Mode[]}>};
 type Draft={draftId:string;sha256:string;status:string};
 const options:Mode[]=["video","audio","writing"];
 export default function DraftComposer({kind,debateId}:{kind:"opening"|"response";debateId?:string}){
@@ -16,7 +16,6 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
  const [title,setTitle]=useState(""),[proposition,setProposition]=useState("");
  const [duration,setDuration]=useState("300"),[windowHours,setWindowHours]=useState("72");
  const [questions,setQuestions]=useState<Array<{text:string;position:string}>>([{text:"",position:"0"}]);
- const [myQuestion,setMyQuestion]=useState(""),[myQuestionPosition,setMyQuestionPosition]=useState("0");
  const [answers,setAnswers]=useState<Record<string,string>>({});
  const [speech,setSpeech]=useState(""),[transcript,setTranscript]=useState("");
  const [file,setFile]=useState<File|null>(null),[mediaId,setMediaId]=useState("");
@@ -51,14 +50,20 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   });
  },[record,candidateId]);
  const pendingQuestions=(record?.questions||[]).filter(q=>q.submission_id===parentId);
+ const selectedBranch=record?.branches.find(b=>b.id===record.submissions.find(s=>s.id===parentId)?.branch_id);
+ const responseRules=selectedBranch||record?.debate;
+ useEffect(()=>{
+  if(kind!=="response"||!responseRules)return;
+  setEnabled(responseRules.allowed_modalities);
+  if(!responseRules.allowed_modalities.includes(mode)){setMode(responseRules.allowed_modalities[0]);setMediaId("");setDraft(null);}
+ },[kind,responseRules,mode]);
  const positionLabel=mode==="writing"?"Character offset within your written speech":"Timestamp in your original (seconds)";
- const updatedQuestions=kind==="opening"?questions.map(q=>({text:q.text,[mode==="writing"?"characterOffset":"timestamp"]:Number(q.position)})):
-  myQuestion.trim()?[{text:myQuestion.trim(),[mode==="writing"?"characterOffset":"timestamp"]:Number(myQuestionPosition)}]:[];
+ const updatedQuestions=(kind==="opening"?questions:questions.filter(q=>q.text.trim())).map(q=>({text:q.text.trim(),[mode==="writing"?"characterOffset":"timestamp"]:Number(q.position)}));
  function payload(sourceId:string|null){
   return {candidacyId:candidateId,modality:mode,mediaAssetId:mode==="writing"?null:sourceId,writtenContent:mode==="writing"?speech:null,
    transcriptText:mode==="writing"?null:transcript,questions:updatedQuestions,archiveConsent,sequenceConsent,
    ...(kind==="opening"?{title,proposition,allowedModalities:enabled,maxResponseSeconds:Number(duration),replyWindowHours:Number(windowHours)}:
-    {answers:pendingQuestions.filter(q=>answers[q.id]!==undefined&&answers[q.id]!=="").map(q=>({questionId:q.id,[mode==="writing"?"characterOffset":"timestamp"]:Number(answers[q.id])}))})};
+    {rulesVersion:selectedBranch?.rules_version||1,answers:pendingQuestions.filter(q=>answers[q.id]!==undefined&&answers[q.id]!=="").map(q=>({questionId:q.id,[mode==="writing"?"characterOffset":"timestamp"]:Number(answers[q.id])}))})};
  }
  async function upload(){
   if(!file||!candidateId)throw Error("Select a verified candidate and original media file.");
@@ -192,7 +197,7 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
    </>:<><label>Opponent's contribution to answer<select required value={parentId} onChange={e=>{setParentId(e.target.value);setAnswers({});setDraft(null);}}>
     <option value="">Select prior contribution</option>{parents.map(p=><option key={p.id} value={p.id}>{p.candidate_name} — {p.kind}</option>)}
    </select></label>
-   <p>Reciprocal audio/video limit: {record?.debate.max_response_seconds||"—"} seconds. Writing uses the stated 150-word-per-minute equivalent. All published replies remain part of the public record even if footnoted.</p></>}
+   <p>Rules version {selectedBranch?.rules_version||1}. Reciprocal audio/video limit: {responseRules?.max_response_seconds||"—"} seconds. Reply window: {responseRules?.reply_window_hours==null?"no fixed deadline":responseRules.reply_window_hours+" hours"}. Writing uses the stated 150-word-per-minute equivalent. All published replies remain part of the public record even if footnoted.</p></>}
    <label>Your submission medium<select value={mode} onChange={e=>{setMode(e.target.value as Mode);setFile(null);setMediaId("");setDraft(null);}}>
     {enabled.map(opt=><option key={opt} value={opt}>{opt[0].toUpperCase()+opt.slice(1)}</option>)}
    </select></label>
@@ -205,8 +210,13 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
    </div>)}<button type="button" className="link-button" disabled={questions.length>=3} onClick={()=>setQuestions([...questions,{text:"",position:"0"}])}>+ Question</button>
    {questions.length>1&&<button type="button" className="link-button" onClick={()=>setQuestions(questions.slice(0,-1))}>Remove last</button>}</fieldset>:
    <fieldset><legend>Responses to the previous candidate's questions</legend>{pendingQuestions.map(q=><label key={q.id}>{q.question_text}<input type="number" min="0" step={mode==="writing"?1:0.1} placeholder="Position in your answer; leave blank if unanswered" value={answers[q.id]||""} onChange={e=>setAnswers({...answers,[q.id]:e.target.value})}/></label>)}
-   <label>Reciprocal question<textarea maxLength={600} value={myQuestion} onChange={e=>setMyQuestion(e.target.value)}/></label>
-   {myQuestion.trim()&&<label>{positionLabel}<input type="number" required min={0} step={mode==="writing"?1:0.1} value={myQuestionPosition} onChange={e=>setMyQuestionPosition(e.target.value)}/></label>}</fieldset>}
+   <p>Ask up to three focused reciprocal questions. Leave them blank for a closing reply.</p>
+   {questions.map((q,i)=><div className="question-editor" key={i}>
+    <label>{i===0?"Reciprocal question":`Reciprocal question ${i+1}`}<textarea maxLength={600} value={q.text} onChange={e=>setQuestions(questions.map((v,n)=>i===n?{...v,text:e.target.value}:v))}/></label>
+    {q.text.trim()&&<label>{positionLabel} — question {i+1}<input type="number" required min={0} step={mode==="writing"?1:0.1} value={q.position} onChange={e=>setQuestions(questions.map((v,n)=>i===n?{...v,position:e.target.value}:v))}/></label>}
+   </div>)}
+   <button type="button" className="link-button" disabled={questions.length>=3} onClick={()=>setQuestions([...questions,{text:"",position:"0"}])}>+ Reciprocal question</button>
+   {questions.length>1&&<button type="button" className="link-button" onClick={()=>setQuestions(questions.slice(0,-1))}>Remove last reciprocal question</button>}</fieldset>}
    <label className="checkline"><input type="checkbox" required checked={archiveConsent} onChange={e=>setArchiveConsent(e.target.checked)}/>I authorize permanent public archiving of my approved original contribution.</label>
    <label className="checkline"><input type="checkbox" required checked={sequenceConsent} onChange={e=>setSequenceConsent(e.target.checked)}/>I authorize unedited inclusion when the reciprocal debate requirements are met.</label>
    <label className="checkline"><input type="checkbox" checked={providerConsent} onChange={e=>setProviderConsent(e.target.checked)}/>I consent to sending my speech text or supplied transcript to the configured private AI provider for optional assessment.</label>

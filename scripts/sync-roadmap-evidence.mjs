@@ -39,15 +39,25 @@ export function reconcileRoadmap(roadmap,registry){
  });
  return {changed:changes>0,modifiedMilestones:changes,roadmap:{...roadmap,milestones}};
 }
+export function reconcileCanonicalRegistry(registry){
+ const outcome=reconcileRoadmap({...registry,milestones:registry.units},registry);
+ const units=outcome.roadmap.milestones.map((unit,i)=>{
+  const next={...unit};
+  // Canonical units already reference PR numbers; do not duplicate every URL.
+  if(!Object.hasOwn(registry.units[i],'pullRequests'))delete next.pullRequests;
+  return next;
+ });
+ const changed=JSON.stringify(units)!==JSON.stringify(registry.units);
+ return {changed,modifiedMilestones:units.filter((u,i)=>JSON.stringify(u)!==JSON.stringify(registry.units[i])).length,registry:{...registry,units}};
+}
 async function main(){
  const root=resolve(process.cwd(),"registry");
- const original=JSON.parse(await readFile(resolve(root,"roadmap.json"),"utf8"));
  const registry=JSON.parse(await readFile(resolve(root,"prs.json"),"utf8"));
- const outcome=reconcileRoadmap(original,registry);
- if(outcome.changed)await writeFile(resolve(root,"roadmap.json"),JSON.stringify(outcome.roadmap,null,2)+"\n");
+ const outcome=reconcileCanonicalRegistry(registry);
+ if(outcome.changed)await writeFile(resolve(root,"prs.json"),JSON.stringify(outcome.registry,null,2)+"\n");
  console.log(JSON.stringify({changed:outcome.changed,modifiedMilestones:outcome.modifiedMilestones,
-  accepted:outcome.roadmap.milestones.filter(m=>m.acceptance==="accepted").length,
-  planned:outcome.roadmap.plannedPrCount}));
+  accepted:outcome.registry.units.filter(m=>m.acceptance==="accepted").length,
+  planned:outcome.registry.plannedPrCount}));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  main().catch(e=>{console.error(e.message);process.exitCode=1});

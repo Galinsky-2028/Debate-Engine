@@ -12,16 +12,17 @@ export function extractUnitIds(title,validIds){
  return [...new Set(match.map(x=>x.toUpperCase()))].filter(x=>validIds.has(x));
 }
 export function mergeRegistry(old,roadmap,prs,observedAt){
- if(!roadmap.planVerified||roadmap.milestones.length!==roadmap.plannedPrCount)
+ const planUnits=roadmap.units??roadmap.milestones;
+ if(!roadmap.planVerified||!Array.isArray(planUnits)||planUnits.length!==roadmap.plannedPrCount)
   throw Error("Unverified roadmap or changed plan denominator: refuse to overwrite registry.");
  if(old.repository!==roadmap.repository||!old.planVerified)
   throw Error("Roadmap repository or plan verification mismatch.");
- const valid=new Set(roadmap.milestones.map(u=>u.id));
- const units=roadmap.milestones.map(m=>{
+ const valid=new Set(planUnits.map(u=>u.id));
+ const units=planUnits.map(m=>{
   const original=old.units.find(u=>u.id===m.id);
   const historical=original?.prs||[];
   const observed=prs.filter(p=>extractUnitIds(p.title,valid).includes(m.id)).map(p=>p.number);
-  return {id:m.id,title:m.title,origin:original?.origin||(m.id>="PDE-31"?"addition":"original"),
+  return {...original,id:m.id,title:m.title,origin:original?.origin||(m.id>="PDE-31"?"addition":"original"),
    prs:[...new Set([...historical,...observed])].sort((a,b)=>a-b)};
  });
  const pullRequests=prs.map(p=>({
@@ -29,7 +30,7 @@ export function mergeRegistry(old,roadmap,prs,observedAt){
   createdAt:p.created_at,updatedAt:p.updated_at,closedAt:p.closed_at,mergedAt:p.merged_at,
   headSha:p.head.sha,baseRef:p.base.ref,mergeCommitSha:p.merge_commit_sha
  })).sort((a,b)=>b.number-a.number);
- const next={schemaVersion:old.schemaVersion,repository:roadmap.repository,roadmapVersion:roadmap.version,
+ const next={...old,schemaVersion:old.schemaVersion,repository:roadmap.repository,roadmapVersion:roadmap.roadmapVersion??roadmap.version,
   planVerified:roadmap.planVerified,plannedPrCount:roadmap.plannedPrCount,
   observedAt,units,pullRequests};
  const oldComparable={...old,observedAt:null},newComparable={...next,observedAt:null};
@@ -59,8 +60,8 @@ async function main(){
  const token=process.env.GITHUB_TOKEN;
  if(!token)throw Error("Authenticated GITHUB_TOKEN is required.");
  const root=resolve(process.cwd(),"registry");
- const roadmap=JSON.parse(await readFile(resolve(root,"roadmap.json"),"utf8"));
  const prior=JSON.parse(await readFile(resolve(root,"prs.json"),"utf8"));
+ const roadmap=prior;
  const repo=process.env.GITHUB_REPOSITORY;
  if(repo!==roadmap.repository)throw Error("Refusing to sync a mismatched GitHub repository.");
  const prs=await listGithubPullRequests({repo,token});

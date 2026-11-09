@@ -8,20 +8,24 @@
 import assert from "node:assert/strict";
 import {createHmac,randomUUID} from "node:crypto";
 import {chromium} from "playwright";
+import AxeBuilder from "@axe-core/playwright";
+import {isPilotRunner} from "./pilot-scope.mjs";
 const origin=process.env.PDE_BROWSER_URL;
-if(process.env.GITHUB_ACTIONS!=="true"||process.env.PDE_CI_PILOT_RUN!=="true"||
+if(!isPilotRunner()||
    origin!=="https://127.0.0.1:3443"||
    process.env.DATABASE_URL!=="postgresql://debate_ci:test_only_password@localhost:5432/debate_ci"||
    !/^[0-9a-f]{64}$/.test(process.env.PDE_CI_AUTH_KEY||""))
  throw Error("The candidate pilot may run only on its disposable localhost CI database.");
 const key=process.env.PDE_CI_AUTH_KEY;
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.PDE_CHROMIUM_EXECUTABLE?{executablePath:process.env.PDE_CHROMIUM_EXECUTABLE}:{})});
 const contexts=[];
 const random="ci-"+randomUUID().slice(0,8);
 const candidateNameA="Fictional Policy Candidate A "+random;
 const candidateNameB="Fictional Policy Candidate B "+random;
+const policyTitle="Synthetic source accountability policy "+random;
 const questionA="How would you independently verify the evidence for each budget change?";
 const questionB="How would you preserve those public audit records?";
+const questionB2="How would you identify corrections without changing original statements?";
 const openingText="This is an entirely fictional policy debate. The proposal is to publish documented fiscal assumptions and clearly state which spending estimates are subject to independent verification. The record must preserve original source material so that participants can check each claim against the published budget calculations and explain any disputes.";
 const responseText="I would use an open and independently inspectable audit ledger to evaluate each published budget change. The responsible office should identify its evidence, sources and approval date without altering the preceding original statement. I also want the proposer to explain how the audit records would be kept accessible without changing prior versions.";
 const replyText="I would publish a permanently attributed append-only audit ledger with dated records, immutable original sources and independent restoration checks. No candidate or reviewer should silently remove another candidate's published contribution or invent a determination of who won the exchange.";
@@ -129,7 +133,7 @@ try{
  assert.equal(mineB.find(c=>c.id===candidateB)?.verification_status,"pending");
  const pendingPayload={candidacyId:candidateA,modality:"writing",writtenContent:openingText,
   mediaAssetId:null,allowedModalities:["writing"],questions:[{text:questionA,characterOffset:0}],
-  title:"Synthetic source accountability policy",proposition:"A fictional and explicitly synthetic proposal",
+  title:policyTitle,proposition:"A fictional and explicitly synthetic proposal",
   maxResponseSeconds:300,replyWindowHours:48,archiveConsent:true,sequenceConsent:true};
  await request(a,"POST","/api/private/drafts",{kind:"opening",candidacyId:candidateA,
   payload:pendingPayload,providerConsent:false,improvementConsent:false},403);
@@ -144,7 +148,7 @@ try{
  await waitVerified(pageB,candidateB);
  await pageA.goto(origin+"/workspace/new");
  await pageA.getByLabel("Verified candidate").selectOption(candidateA);
- await pageA.getByLabel("Policy title").fill("Synthetic source accountability policy");
+ await pageA.getByLabel("Policy title").fill(policyTitle);
  await pageA.getByLabel("Proposal and supporting explanation").fill("An explicitly fictional plan to make public-source budget estimates more auditable.");
  await pageA.getByRole("checkbox",{name:"Writing"}).check();
  await pageA.getByLabel("Your submission medium").selectOption("writing");
@@ -158,7 +162,7 @@ try{
  assert.ok(prepared&&prepared.status==="draft");
  await request(b,"GET","/api/private/drafts/"+prepared.id,undefined,404);
  await request(anonymous,"GET","/api/private/drafts/"+prepared.id,undefined,401);
- const visibleBefore=(await request(anonymous,"GET","/api/debates?q=Synthetic%20source%20accountability%20policy")).debates;
+ const visibleBefore=(await request(anonymous,"GET","/api/debates?q="+encodeURIComponent(policyTitle))).debates;
  assert.equal(visibleBefore.length,0,"Private candidate drafts must not appear in public search.");
  await pageA.getByRole("button",{name:/Skip optional assessment/}).click();
  await pageA.getByText(/Optional analysis skipped/).waitFor();
@@ -178,6 +182,8 @@ try{
  await pageB.getByLabel("Complete written speech").fill(responseText);
  await pageB.getByLabel(questionA).fill("0");
  await pageB.getByLabel("Reciprocal question").fill(questionB);
+ await pageB.getByRole("button",{name:"+ Reciprocal question",exact:true}).click();
+ await pageB.getByLabel("Reciprocal question 2",{exact:true}).fill(questionB2);
  await consent(pageB);
  const responseDraftId=await publishFromComposer(pageB,"Responder");
  const responseReceipt=await request(b,"GET","/api/private/drafts/"+responseDraftId);
@@ -194,13 +200,16 @@ try{
  const currentPolicyList=await request(anonymous,"GET","/api/branches/"+responseBranchId+"/policies");
  assert.deepEqual(currentPolicyList.policies,[],"The policy endpoint must use real endorsement schema and return no invented agreements.");
  const qB=secondPublic.questions.find(q=>q.submission_id===responseId)?.id;
+ const qB2=secondPublic.questions.find(q=>q.submission_id===responseId&&q.question_text===questionB2)?.id;
  assert.ok(qB,"Responder's reciprocal question must be attributed and public");
+ assert.ok(qB2,"A second reciprocal question must survive private review and publication");
  await pageA.goto(origin+"/debates/"+debateId+"/respond");
  await pageA.getByLabel("Verified candidate").selectOption(candidateA);
  await pageA.getByLabel("Opponent's contribution to answer").selectOption(responseId);
  await pageA.getByLabel("Your submission medium").selectOption("writing");
  await pageA.getByLabel("Complete written speech").fill(replyText);
  await pageA.getByLabel(questionB).fill("0");
+ await pageA.getByLabel(questionB2).fill("0");
  await consent(pageA);
  const replyDraftId=await publishFromComposer(pageA,"Originator reply");
  const replyReceipt=await request(a,"GET","/api/private/drafts/"+replyDraftId);
@@ -209,6 +218,11 @@ try{
  await request(b,"POST","/api/assessments",{candidacyId:candidateB,questionId:qB,
   answerSubmissionId:replyId,decision:"answered",
   reasoning:"The originator explained how public source records would remain available."},201);
+ const awaitingSecondAssessment=await request(anonymous,"GET","/api/debates/"+debateId+"/sequence");
+ assert.equal(awaitingSecondAssessment.branches.find(x=>x.branchId===responseBranchId).publishedVersion,null);
+ await request(b,"POST","/api/assessments",{candidacyId:candidateB,questionId:qB2,
+  answerSubmissionId:replyId,decision:"answered",
+  reasoning:"The originator committed to append-only records and unchanged original sources."},201);
  const timeline=await request(anonymous,"GET","/api/debates/"+debateId);
  assert.equal(timeline.submissions.length,3,"All three published originals must be preserved");
  const sequence=await request(anonymous,"GET","/api/debates/"+debateId+"/sequence");
@@ -216,6 +230,17 @@ try{
  assert.ok(branch,"The responder must have a separate branch");
  assert.deepEqual(branch.qualifyingSubmissionIds,[openingId,responseId,replyId],
   "Only reciprocal question/assessment-complete exchanges belong to the qualified sequence.");
+ assert.equal(branch.publishedVersion,1,"The completed exchange must be saved in the assessment transaction.");
+ assert.equal(branch.manifests.length,1);
+ assert.match(branch.manifests[0].manifest_sha256,/^[a-f0-9]{64}$/);
+ await request(a,"POST","/api/assessments",{candidacyId:candidateA,questionId:qA,
+  answerSubmissionId:responseId,decision:"not_answered",
+  reasoning:"I now disagree with this answer; the earlier published exchange must remain inspectable."},201);
+ const revised=await request(anonymous,"GET","/api/debates/"+debateId+"/sequence");
+ const retained=revised.branches.find(x=>x.branchId===responseBranchId);
+ assert.deepEqual(retained.qualifyingSubmissionIds,[openingId,responseId,replyId]);
+ assert.deepEqual(retained.currentQualifyingSubmissionIds,[openingId]);
+ assert.equal(retained.manifests[0].manifest_sha256,branch.manifests[0].manifest_sha256);
  await request(b,"POST","/api/contributions/"+openingId+"/corrections",{
   candidacyId:candidateB,correctionBody:"An opponent must not be allowed to rewrite this original."},403);
  const correction=await request(a,"POST","/api/contributions/"+openingId+"/corrections",{
@@ -226,11 +251,64 @@ try{
  const publicPage=await pageAt(anonymous,"/debates/"+debateId);
  assert.match(await publicPage.locator("main").innerText(),/fictional|Synthetic/i);
  assert.match(await publicPage.locator("main").innerText(),/preserves all historical source versions/i);
- const archive=await request(anonymous,"GET","/api/debates?q=Synthetic%20source%20accountability%20policy");
+ const archive=await request(anonymous,"GET","/api/debates?q="+encodeURIComponent(policyTitle));
  assert.ok(archive.debates.some(d=>d.id===debateId));
+ const rulesPath='/api/branches/'+responseBranchId+'/rules';
+ const oldObligations=(await request(anonymous,'GET','/api/debates/'+debateId)).obligations;
+ const pendingResponse={kind:'response',candidacyId:candidateB,debateId,parentSubmissionId:replyId,
+  providerConsent:false,improvementConsent:false,payload:{candidacyId:candidateB,modality:'writing',writtenContent:responseText,
+   mediaAssetId:null,questions:[{text:'How will the next review be scheduled?',characterOffset:0}],answers:[],archiveConsent:true,sequenceConsent:true,rulesVersion:1}};
+ const oldDraft=await request(b,'POST','/api/private/drafts',pendingResponse,201);
+ await request(b,'POST','/api/private/drafts/'+oldDraft.draftId+'/skip',{});
+ const proposal=await request(a,'POST',rulesPath,{candidacyId:candidateA,baseRevision:1,maxResponseSeconds:120,replyWindowHours:24,allowedModalities:['writing']},201);
+ const approvePath=rulesPath+'/'+proposal.proposalId+'/approve';
+ await request(b,'POST',approvePath,{candidacyId:candidateB,sha256:'0'.repeat(64)},409);
+ await request(b,'POST',approvePath,{candidacyId:candidateA,sha256:proposal.sha256},403);
+ const firstApproval=await request(a,'POST',approvePath,{candidacyId:candidateA,sha256:proposal.sha256});
+ assert.equal(firstApproval.activated,false);
+ assert.equal((await request(anonymous,'GET',rulesPath)).current.revision,1);
+ const [secondApproval]=await Promise.all([
+  request(b,'POST',approvePath,{candidacyId:candidateB,sha256:proposal.sha256}),
+  request(a,'POST',approvePath,{candidacyId:candidateA,sha256:proposal.sha256}),
+ ]);
+ assert.equal(secondApproval.activated,true);assert.equal(secondApproval.revision,2);
+ const afterChange=await request(anonymous,'GET','/api/debates/'+debateId);
+ assert.deepEqual(afterChange.obligations.map(o=>[o.id,o.effective_due_at]),oldObligations.map(o=>[o.id,o.effective_due_at]),'Rule changes cannot rewrite existing clocks.');
+ assert.ok(afterChange.submissions.every(s=>s.rules_version===1));
+ await request(b,'POST','/api/private/drafts/'+oldDraft.draftId+'/confirm',{sha256:oldDraft.sha256},409);
+ await request(a,'POST',rulesPath,{candidacyId:candidateA,baseRevision:1,maxResponseSeconds:120,replyWindowHours:24,allowedModalities:['writing']},409);
+ await pageB.goto(origin+'/debates/'+debateId+'/respond');
+ await pageB.getByLabel('Verified candidate').selectOption(candidateB);
+ await pageB.getByLabel("Opponent's contribution to answer").selectOption(replyId);
+ await pageB.getByLabel('Your submission medium').selectOption('writing');
+ await pageB.getByLabel('Complete written speech').fill(responseText);
+ await pageB.getByLabel('Reciprocal question',{exact:true}).fill('How will the next review be scheduled?');
+ await consent(pageB);
+ const newDraftId=await publishFromComposer(pageB,'Response under mutually approved rules');
+ const newReceipt=await request(b,'GET','/api/private/drafts/'+newDraftId);
+ const finalRecord=await request(anonymous,'GET','/api/debates/'+debateId);
+ const newSpeech=finalRecord.submissions.find(s=>s.id===newReceipt.draft.published_submission_id);
+ assert.equal(newSpeech.rules_version,2);
+ const newClock=finalRecord.obligations.find(o=>o.source_submission_id===newSpeech.id&&o.obligation_type==='reply');
+ assert.equal(Date.parse(newClock.effective_due_at)-Date.parse(newClock.opened_at),24*60*60*1000);
+ const rulePage=await pageAt(anonymous,'/debates/'+debateId);
+ await rulePage.getByRole('region',{name:'Mutually approved branch rules'}).getByText(/Current version 2:/).waitFor();
+ assert.match(await rulePage.getByRole('region',{name:'Mutually approved branch rules'}).innerText(),/Current version 2/);
+ for(const width of [1250,375]){
+  await rulePage.setViewportSize({width,height:900});
+  const dimensions=await rulePage.evaluate(()=>({width:window.innerWidth,scroll:Math.max(document.body.scrollWidth,document.documentElement.scrollWidth)}));
+  if(dimensions.scroll>dimensions.width+1){
+   const overflow=await rulePage.evaluate(()=>Array.from(document.querySelectorAll('main *')).filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>innerWidth+1}).map(e=>({tag:e.tagName,class:e.className})).slice(0,12));
+   assert.fail('Populated debate page must fit the '+width+'px viewport: '+JSON.stringify(overflow));
+  }
+  const accessibility=await new AxeBuilder({page:rulePage}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
+  assert.deepEqual(accessibility.violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[],'Populated debate, sequence history and branch rules must pass automated accessibility checks.');
+ }
  console.log(JSON.stringify({result:"PASS",mode:"isolated_signed_session_fixture_not_real_neon_auth",
   distinctCandidateSessions:2,independentReviewerSession:true,verifiedFixtureCandidacies:2,
-  publishedSubmissions:3,assessments:2,qualifyingSubmissions:3,
+  publishedSubmissions:4,assessments:4,reciprocalQuestions:2,qualifyingSubmissions:3,immutableSequenceAfterReassessment:true,
+  mutuallyApprovedRuleChange:true,oldDeadlinesPreserved:true,staleRuleDraftRejected:true,newReplyWindowHours:24,
+  populatedDebateMobileLayout:true,populatedDebateAutomatedAccessibility:true,
   attributedCorrections:1,privateDraftCrossAccountDenied:true,
   unauthenticatedDenied:true,reviewerOnlyVerification:true,privateBeforePublish:true,
   noRealCandidateData:true,noProductionDatabase:true}));

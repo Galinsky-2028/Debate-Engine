@@ -40,7 +40,18 @@ test("PDE-32 keeps one product name and one canonical plan while the repository 
  assert.match(handoff,/\*\*Product:\*\* Public Debate Engine/);
  assert.match(handoff,/registry\/prs\.json/);
  assert.match(transition,/canonical `registry\/prs\.json`/);
- assert.match(transition,/currently hosted GitHub repository slug is `neophilism\/Debate-Engine`/);
+ assert.match(transition,/currently hosted GitHub repository slug is `Galinsky-2028\/Debate-Engine`/);
  assert.doesNotMatch(readme,/Full 30-milestone/);
  assert.doesNotMatch(handoff,/See `registry\/roadmap\.json` for each milestone/);
+});
+test('canonical PR synchronization preserves approved units, acceptance and metadata',()=>{
+ const canonical={...roadmap,units:[{id:'PDE-17',title:'Discovery',prs:[1],acceptance:'pending',dependsOn:['PDE-02'],acceptanceNote:'Actual browser evidence required'},{id:'PDE-30',title:'Handoff',prs:[]}],roadmapVersion:6};
+ delete canonical.milestones;
+ const prior={...old,...canonical,production_ready:false};
+ const next=mergeRegistry(prior,canonical,[make(60)],'now').registry;
+ assert.equal(next.units[0].acceptance,'pending');
+ assert.deepEqual(next.units[0].dependsOn,['PDE-02']);
+ assert.equal(next.units[0].acceptanceNote,'Actual browser evidence required');
+ assert.equal(next.production_ready,false);
+ assert.equal(next.roadmapVersion,6);
 });

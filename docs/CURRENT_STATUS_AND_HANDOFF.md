@@ -1,10 +1,17 @@
 # Public Debate Engine current development and handoff status
 
-**Reviewed:** October 15, 2026. **Product:** Public Debate Engine. **Current repository:** [`neophilism/Debate-Engine`](https://github.com/neophilism/Debate-Engine) (the approved administrative rename is still pending).
+**Reviewed:** November 9, 2026. **Product:** Public Debate Engine. **Current repository:** [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine).
+
+
+## November 9 local implementation and verification
+
+Current work on `finish-debate-platform` adds append-only published sequence manifests, deterministic same-timestamp assessment ordering, one-to-three reciprocal questions in the composer, mutually approved future branch-rule versions, stale-draft rejection and a reproducible disposable local two-candidate pilot. Release and reconciliation tooling now use `registry/prs.json` directly. The GitHub organization transfer was confirmed using the current clone origin and the old PR URL redirect; canonical PR links were normalized without inventing new status observations or merge records.
+
+See [the development evidence](evidence/2026-11-09-platform-completion.md), [sequence history](QUALIFYING_SEQUENCE_UI.md) and [mutual rule changes](BRANCH_RULE_VERSIONS.md). These are local source and test results, not a merged PR or production release. The interrupted upload requirement remains unresolved; no rule was invented for it.
 
 ## Canonical resources
 
-- Source: https://github.com/neophilism/Debate-Engine
+- Source: https://github.com/Galinsky-2028/Debate-Engine
 - Neutral Render preview: https://public-debate-engine-preview.onrender.com
 - Render service: srv-db5j814s728c738161ig, workspace tea-db23jkks728c73av263g
 - Neon project: rapid-moon-08277391

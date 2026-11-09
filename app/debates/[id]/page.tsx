@@ -6,6 +6,7 @@ import PolicyWorkspace from "./policy-workspace";
 import SupportingDocuments from "./supporting-documents";
 import QualifyingSequence from "./qualifying-sequence";
 import CorrectionTools from "./correction-tools";
+import BranchRules from "./branch-rules";
 import { publicDocuments } from "../../../lib/server/documents";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -29,11 +30,11 @@ export default async function DebateDetail({params}:{params:Promise<{id:string}>
      <PublishedContribution submission={opening} preload="metadata"/>
      <h3>Questions to competing candidates</h3><ol>{questions.filter(q=>q.submission_id===opening.id).map(q=><li key={q.id}>{q.question_text} <span className="small-label">({(q.written_anchor||Math.round(Number(q.video_timestamp_seconds))+"s")})</span></li>)}</ol>
    </section>}
-   <QualifyingSequence data={{originatorId:d.originator_candidacy_id,branches,submissions,questions,answers,assessments}}/>
+   <QualifyingSequence data={{originatorId:d.originator_candidacy_id,branches,submissions,questions,answers,assessments,sequenceManifests:data.sequenceManifests}}/>
    <div className="two-record-views"><article><h2>Complete public record</h2><p>Every published video, audio recording, or written speech, including nonqualifying and disputed contributions.</p></article><article><h2>Qualifying sequence</h2><p>Only reciprocal exchanges satisfying the review protocol. Pending obligations remain visible without implying that anyone conceded.</p></article></div>
    <section className="record-section-list"><h2>Published contributions</h2>
      {submissions.map(s=><article className="submission-item" id={"contribution-"+s.id} key={s.id}>
-       <div><span className="small-label">{s.kind.toUpperCase()} · {s.candidate_name}</span><h3>{s.candidate_name}</h3>{Array.isArray(s.format_issues)&&s.format_issues.length>0&&<div className="format-footnote"><strong>Outside qualifying format — preserved in full</strong><ul>{s.format_issues.map((issue:string,i:number)=><li key={i}>{issue}</li>)}</ul></div>}<p>Published {new Date(s.published_at).toLocaleDateString("en-US")}</p><PublishedContribution submission={s}/></div>
+       <div><span className="small-label">{s.kind.toUpperCase()} · {s.candidate_name} · Rules version {s.rules_version}</span><h3>{s.candidate_name}</h3>{Array.isArray(s.format_issues)&&s.format_issues.length>0&&<div className="format-footnote"><strong>Outside qualifying format — preserved in full</strong><ul>{s.format_issues.map((issue:string,i:number)=><li key={i}>{issue}</li>)}</ul></div>}<p>Published {new Date(s.published_at).toLocaleDateString("en-US")}</p><PublishedContribution submission={s}/></div>
        <div><h4>Questions</h4>{questions.filter(q=>q.submission_id===s.id).map(q=><p className="question-text" key={q.id}>“{q.question_text}”</p>)}
        <h4>Questions answered</h4>{answers.filter(a=>a.submission_id===s.id).map(a=><p key={a.id}>Q: {questions.find(q=>q.id===a.question_id)?.question_text||"Question"} · {(a.written_anchor||Math.round(Number(a.video_timestamp_seconds))+"s")}</p>)}
        <h4>Corrections and clarifications</h4>{corrections.filter(c=>c.submission_id===s.id).length===0?<p>No corrections published.</p>:corrections.filter(c=>c.submission_id===s.id).map(c=><article className="assessment" key={c.id}><p className="small-label">PERMANENT CORRECTION · {new Date(c.created_at).toLocaleDateString("en-US")}</p><p>{c.correction_body}</p><p className="small-label">Original unchanged · Correction ID {c.id}</p></article>)}
@@ -48,6 +49,7 @@ export default async function DebateDetail({params}:{params:Promise<{id:string}>
    </section>
    <section className="source-list"><h2>Published supporting materials</h2>{documents.length===0?<p>No supporting files published yet.</p>:<ul>{documents.map(x=><li key={x.id}><a href={"/api/documents/"+x.id+"/download"}>{x.label} — {x.filename} ↗</a> <small>SHA-256 {x.sha256}</small></li>)}</ul>}</section><SupportingDocuments submissions={submissions}/>
    <PolicyWorkspace branches={branches}/>
+   <BranchRules branches={branches} originatorId={d.originator_candidacy_id}/>
    <Link href="/debates" className="inline-arrow">← All debates</Link>
  </div>;
 }

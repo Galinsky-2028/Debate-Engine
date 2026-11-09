@@ -17,3 +17,12 @@ test("missing, duplicated, malformed or unreviewed evidence fails closed",()=>{
  assert.throws(()=>evaluateRelease({roadmap,evidence:{schemaVersion:1,gates:[gates[0],gates[0]]}}));
  assert.throws(()=>evaluateRelease({roadmap:{...roadmap,plannedPrCount:3},evidence:{schemaVersion:1,gates}}));
 });
+test('the canonical registry is evaluated without reading the retired roadmap',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const canonical=JSON.parse(await readFile(new URL('../registry/prs.json',import.meta.url),'utf8'));
+ const evidence=JSON.parse(await readFile(new URL('../registry/production-acceptance.json',import.meta.url),'utf8'));
+ const outcome=evaluateRelease({roadmap:canonical,evidence});
+ assert.equal(outcome.planUnits,44);
+ assert.equal(outcome.ready,false);
+ assert.ok(outcome.unaccepted.some(g=>g.gate==='productionRelease'));
+});

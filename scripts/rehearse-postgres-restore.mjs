@@ -67,14 +67,20 @@ async function seed(){
   "INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,kind,modality,written_content) VALUES($1,$2,$3,$4,'response','writing',$5) RETURNING id",
   [debate,branch,candidateB,opening,"I would independently restore a fresh database and compare the complete evidence, including immutable published answers."])).rows[0].id;
  await source.query("INSERT INTO answers(submission_id,question_id,written_anchor) VALUES($1,$2,'char:0')",[response,question]);
+ const reciprocal=(await source.query("INSERT INTO questions(submission_id,asked_by_candidacy_id,ordinal,question_text,written_anchor) VALUES($1,$2,1,'Would the original archive remain unchanged?','char:0') RETURNING id",[response,candidateB])).rows[0].id;
  await source.query("UPDATE submissions SET published_at=now() WHERE id=$1",[response]);
  await source.query(
   "INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning) VALUES($1,$2,$3,'answered','The response describes a reproducible restoration process.')",
   [question,response,candidateA]);
+ const reply=(await source.query("INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,kind,modality,written_content) VALUES($1,$2,$3,$4,'reply','writing','Yes. Restore rehearsals preserve all original archive records and published manifests.') RETURNING id",[debate,branch,candidateA,response])).rows[0].id;
+ await source.query("INSERT INTO answers(submission_id,question_id,written_anchor) VALUES($1,$2,'char:0')",[reply,reciprocal]);
+ await source.query("UPDATE submissions SET published_at=now() WHERE id=$1",[reply]);
+ await source.query("INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning) VALUES($1,$2,$3,'answered','The original archive and manifest will remain preserved.')",[reciprocal,reply,candidateB]);
+ const manifest=(await source.query("INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,1,$2::uuid[]) RETURNING id,manifest_sha256",[branch,[opening,response,reply]])).rows[0];
  await source.query(
   "INSERT INTO submission_corrections(submission_id,candidacy_id,correction_body) VALUES($1,$2,'The original remains valid; this is a separately preserved clarification.')",
   [response,candidateB]);
- return {opening,response};
+ return {opening,response,reply,manifest};
 }
 function stable(value){
  if(value===null||typeof value!=="object")return value;
@@ -99,6 +105,7 @@ try{
  await source.connect();connected=true;
  const ids=await seed();
  const original=await fingerprint(source);
+ const publishedCount=(await source.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL")).rows[0].n;
  assert.ok(original.tables>=25,"Expected a complete migrated application schema.");
  await docker("pg_dump","-U",user,"-d","debate_ci","--format=custom","--file="+dump);
  await docker("createdb","-U",user,destinationName);created=true;
@@ -107,7 +114,9 @@ try{
  await destination.connect();
  const restored=await fingerprint(destination);
  assert.deepEqual(restored,original,"The restored complete database must match the original.");
- assert.equal((await destination.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL")).rows[0].n,2);
+ assert.equal((await destination.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL")).rows[0].n,publishedCount);
+ assert.equal((await destination.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL AND id=ANY($1::uuid[])",[[ids.opening,ids.response,ids.reply]])).rows[0].n,3);
+ assert.equal((await destination.query("SELECT manifest_sha256 FROM qualifying_sequence_manifests WHERE id=$1",[ids.manifest.id])).rows[0].manifest_sha256,ids.manifest.manifest_sha256);
  // Check that published-source integrity constraints survived the export and restore.
  await destination.query("BEGIN");
  await destination.query("SAVEPOINT immutable");
@@ -117,8 +126,13 @@ try{
  await destination.query("ROLLBACK TO SAVEPOINT immutable");
  await destination.query("ROLLBACK");
  assert.equal(refused,true,"Restored database must still prevent editing published originals.");
+ await destination.query('BEGIN');
+ let manifestRefused=false;
+ try{await destination.query('DELETE FROM qualifying_sequence_manifests WHERE id=$1',[ids.manifest.id])}catch{manifestRefused=true}
+ await destination.query('ROLLBACK');
+ assert.equal(manifestRefused,true,'Restored sequence manifests must remain append-only.');
  console.log(JSON.stringify({result:"pass",tableCount:original.tables,rowsAndSchemaSha256:restored.sha256,
-  publishedSubmissions:2,immutablePublishedSpeech:true,mode:"fictional-data-only"}));
+  publishedSubmissions:publishedCount,fixtureSubmissions:3,immutablePublishedSpeech:true,immutableSequenceManifest:true,mode:"fictional-data-only"}));
 }finally{
  if(destination)await destination.end().catch(()=>{});
  if(connected)await source.end().catch(()=>{});

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHash} from "node:crypto";
 import pg from "pg";
 import {branchSequence} from "../packages/domain/sequence.ts";
 
@@ -72,10 +72,18 @@ test("three candidate, two branch reciprocal pilot: permanent nonqualifying repl
   const replyA=await speech(db,{debate,branch:bb,candidate:a,parent:answerB,kind:"reply",
    text:"Yes. The audit ledger would preserve each approved amendment and its timestamp for public inspection."});
   await db.query("INSERT INTO answers(submission_id,question_id,written_anchor) VALUES($1,$2,'char:0')",[replyA,qB]);
+  const nextQuestion=(await db.query("INSERT INTO questions(submission_id,asked_by_candidacy_id,ordinal,question_text,written_anchor) VALUES($1,$2,1,'How should the next audit be scheduled?','char:0') RETURNING id",[replyA,a])).rows[0].id;
   await publish(db,replyA);
+  await denied(db,"INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,1,$2::uuid[])",[bb,[opening,answerB,replyA]]);
   await db.query(
    "INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning) VALUES($1,$2,$3,'answered','A answered my audit ledger question.')",
    [qB,replyA,b]);
+  const manifest=(await db.query("INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,1,$2::uuid[]) RETURNING *",[bb,[opening,answerB,replyA]])).rows[0];
+  assert.equal(manifest.manifest_sha256,createHash('sha256').update([opening,answerB,replyA].join(',')).digest('hex'));
+  await denied(db,"UPDATE qualifying_sequence_manifests SET revision=2 WHERE id=$1",[manifest.id]);
+  await denied(db,"DELETE FROM qualifying_sequence_manifests WHERE id=$1",[manifest.id]);
+  await denied(db,"INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,2,$2::uuid[])",[bb,[opening,answerB,replyA]]);
+  await denied(db,"INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,1,$2::uuid[])",[cc,[opening,answerB,replyA]]);
   const submissions=(await db.query(
    "SELECT id,branch_id,parent_submission_id,candidacy_id,kind,published_at,format_issues FROM submissions WHERE debate_id=$1 AND published_at IS NOT NULL ORDER BY published_at,id",
    [debate])).rows.map(s=>({...s,published_at:new Date(s.published_at).toISOString()}));
@@ -99,6 +107,25 @@ test("three candidate, two branch reciprocal pilot: permanent nonqualifying repl
    [qA,answerB,c]);
   await denied(db,"DELETE FROM submissions WHERE id=$1",[answerC]);
   await denied(db,"UPDATE submissions SET written_content='rewritten' WHERE id=$1",[answerC]);
+
+  // A later reassessment is public, but cannot erase a published sequence or stop a new exchange.
+  const reverse=(await db.query("INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning,supersedes_assessment_id) VALUES($1,$2,$3,'not_answered','I now dispute the original implementation answer.',$4) RETURNING event_order",[qA,answerB,a,assessment])).rows[0];
+  assert.ok(reverse.event_order);
+  const responseNext=await speech(db,{debate,branch:bb,candidate:b,parent:replyA,kind:'reply',text:'A quarterly independent audit. Will you publish its timing?'});
+  await db.query("INSERT INTO answers(submission_id,question_id,written_anchor) VALUES($1,$2,'char:0')",[responseNext,nextQuestion]);
+  const reciprocalNext=(await db.query("INSERT INTO questions(submission_id,asked_by_candidacy_id,ordinal,question_text,written_anchor) VALUES($1,$2,1,'Will you publish the audit timing?','char:0') RETURNING id",[responseNext,b])).rows[0].id;
+  await publish(db,responseNext);
+  const replyNext=await speech(db,{debate,branch:bb,candidate:a,parent:responseNext,kind:'reply',text:'Yes, all audit dates will be published in advance.'});
+  await db.query("INSERT INTO answers(submission_id,question_id,written_anchor) VALUES($1,$2,'char:0')",[replyNext,reciprocalNext]);
+  await publish(db,replyNext);
+  await db.query("INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning) VALUES($1,$2,$3,'answered','The audit schedule question is answered.')",[nextQuestion,responseNext,a]);
+  await denied(db,"INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,2,$2::uuid[])",[bb,[opening,answerB,replyA,responseNext,replyNext]]);
+  await db.query("INSERT INTO assessments(question_id,answer_submission_id,reviewer_candidacy_id,decision,reasoning) VALUES($1,$2,$3,'answered','The publication timing question is answered.')",[reciprocalNext,replyNext,b]);
+  await db.query("INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,2,$2::uuid[])",[bb,[opening,answerB,replyA,responseNext,replyNext]]);
+  const history=(await db.query("SELECT revision,submission_ids FROM qualifying_sequence_manifests WHERE branch_id=$1 ORDER BY revision",[bb])).rows;
+  assert.deepEqual(history.map(m=>m.submission_ids.length),[3,5]);
+  assert.deepEqual(history[0].submission_ids,[opening,answerB,replyA]);
+  await denied(db,"INSERT INTO qualifying_sequence_manifests(branch_id,revision,submission_ids) VALUES($1,3,$2::uuid[])",[bb,[opening,answerB,replyA]]);
 
   // Historical joint agreement may later be withdrawn without deleting the original approval.
   const policyHash="b".repeat(64);
@@ -126,6 +153,24 @@ test("three candidate, two branch reciprocal pilot: permanent nonqualifying repl
   await denied(db,"INSERT INTO submission_corrections(submission_id,candidacy_id,correction_body) VALUES($1,$2,'An unauthorized change by another participant is forbidden.')",[answerB,a]);
   assert.ok((await db.query("SELECT 1 FROM assessments WHERE id=$1",[assessment])).rowCount,"Assessment remains attributed in original record.");
   assert.ok((await db.query("SELECT 1 FROM submissions WHERE id=$1",[answerC])).rowCount,"Unqualified contender response stays archived.");
+  // Mutual future rules cannot be activated by one participant or rewrite old submissions.
+  const ruleHash='d'.repeat(64);
+  await denied(db,"INSERT INTO branch_rule_proposals(branch_id,proposed_by_candidacy_id,base_revision,max_response_seconds,reply_window_hours,allowed_modalities,content_sha256) VALUES($1,$2,1,120,24,ARRAY['writing'],$3)",[bb,c,ruleHash]);
+  const proposal=(await db.query("INSERT INTO branch_rule_proposals(branch_id,proposed_by_candidacy_id,base_revision,max_response_seconds,reply_window_hours,allowed_modalities,content_sha256) VALUES($1,$2,1,120,24,ARRAY['writing'],$3) RETURNING id",[bb,a,ruleHash])).rows[0].id;
+  await denied(db,"INSERT INTO branch_rule_versions(branch_id,revision,proposal_id) VALUES($1,2,$2)",[bb,proposal]);
+  await denied(db,"INSERT INTO branch_rule_approvals(proposal_id,content_sha256,candidacy_id) VALUES($1,$2,$3)",[proposal,'e'.repeat(64),b]);
+  await denied(db,"INSERT INTO branch_rule_approvals(proposal_id,content_sha256,candidacy_id) VALUES($1,$2,$3)",[proposal,ruleHash,c]);
+  await db.query("INSERT INTO branch_rule_approvals(proposal_id,content_sha256,candidacy_id) VALUES($1,$2,$3)",[proposal,ruleHash,a]);
+  await denied(db,"INSERT INTO branch_rule_versions(branch_id,revision,proposal_id) VALUES($1,2,$2)",[bb,proposal]);
+  await db.query("INSERT INTO branch_rule_approvals(proposal_id,content_sha256,candidacy_id) VALUES($1,$2,$3)",[proposal,ruleHash,b]);
+  await denied(db,"INSERT INTO branch_rule_versions(branch_id,revision,proposal_id) VALUES($1,2,$2)",[cc,proposal]);
+  await db.query("INSERT INTO branch_rule_versions(branch_id,revision,proposal_id) VALUES($1,2,$2)",[bb,proposal]);
+  await denied(db,"UPDATE branch_rule_proposals SET max_response_seconds=60 WHERE id=$1",[proposal]);
+  await denied(db,"DELETE FROM branch_rule_approvals WHERE proposal_id=$1",[proposal]);
+  await denied(db,"DELETE FROM branch_rule_versions WHERE branch_id=$1",[bb]);
+  await denied(db,"INSERT INTO branch_rule_proposals(branch_id,proposed_by_candidacy_id,base_revision,max_response_seconds,allowed_modalities,content_sha256) VALUES($1,$2,1,120,ARRAY['writing'],$3)",[bb,a,ruleHash]);
+  await denied(db,"INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,kind,modality,written_content,rules_version) VALUES($1,$2,$3,$4,'reply','writing','A stale draft must be reviewed under the new rules.',1)",[debate,bb,b,replyNext]);
+  assert.equal((await db.query('SELECT rules_version FROM submissions WHERE id=$1',[answerB])).rows[0].rules_version,1);
  }finally{
   await db.query("ROLLBACK").catch(()=>{});
   await db.end();
