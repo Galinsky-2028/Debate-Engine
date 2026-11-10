@@ -8,7 +8,8 @@ export async function prepareMediaLocally(file:File,medium:'audio'|'video'){
   worker.postMessage({file});
  });
  const duration=await new Promise<number|null>(resolve=>{
-  const media=document.createElement(medium),url=URL.createObjectURL(file);
+  const media=medium==='audio'?document.createElement('audio'):document.createElement('video');
+  const url=URL.createObjectURL(file);
   let done=false;
   const finish=(value:number|null)=>{if(done)return;done=true;clearTimeout(timer);media.removeAttribute('src');media.load();URL.revokeObjectURL(url);resolve(value);};
   const timer=setTimeout(()=>finish(null),10000);
