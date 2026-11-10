@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     npm ci --no-audit --no-fund
-COPY . .
+COPY --chown=node:node . .
 RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=256
 USER node
