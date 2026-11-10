@@ -55,7 +55,7 @@ try{
  await visit('/workspace/new');
  const localOption=page.getByRole('option',{name:'On this laptop — free'});
  assert.equal(await localOption.isEnabled(),true);
- assert.equal(await page.getByRole('option',{name:/On the website — paid processing/}).isDisabled(),true,'An account cannot activate its own paid entitlement.');
+ assert.equal(await page.getByRole('option',{name:/On the website — paid processing/}).evaluate(option=>option.disabled),true,'An account cannot activate its own paid entitlement.');
  for(const width of [375,390]){
   await page.setViewportSize({width,height:812});
   for(const path of ["/","/debates","/protocol","/sign-in"]){
