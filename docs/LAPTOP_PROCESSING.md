@@ -2,7 +2,7 @@
 
 The owner selected these modes on November 9, 2026:
 
-- Free accounts prepare their file in the browser, including a SHA-256 digest in a Web Worker and local audio/video metadata reading. Current Chrome, Edge, Firefox and Safari run this on Mac, Windows and Linux without installing a candidate app. Files remain unedited. Browser codec availability varies; authoritative format validation remains on the platform.
+- Free accounts prepare their file in a browser Web Worker, including a SHA-256 digest and bounded MP4 movie-duration parsing. Current Chrome, Edge, Firefox and Safari run this on Mac, Windows and Linux without installing a candidate app. Files remain unedited and are not rendered to prepare them. Unsupported local metadata formats fall back to the platform's authoritative FFprobe validation.
 - Paid entitlements allow skipping browser metadata preparation and using hosted preparation. The API checks the account's stored `processing_tier`, never a client-supplied subscription claim. Billing, checkout, paid activation and automatic renewals are intentionally inactive. No account has been charged or silently upgraded.
 - Both modes require independent malware scanning, authoritative hashing, FFprobe validation, candidate authorization and deliberate publication consent. A candidate cannot self-certify their own file as safe.
 
