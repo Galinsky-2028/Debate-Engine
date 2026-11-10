@@ -1,0 +1,14 @@
+services:
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile.scanner
+    env_file: scanner.env
+    volumes:
+      - clamav-signatures:/var/lib/clamav
+    mem_limit: 2g
+    cpus: 1
+    restart: unless-stopped
+    # Outbound HTTPS polling only. No laptop ports are exposed.
+volumes:
+  clamav-signatures:

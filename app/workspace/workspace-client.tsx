@@ -90,7 +90,7 @@ export default function CandidateWorkspace({displayName,admin,verifiedEmail}:{di
        <label>Affiliation (optional)<input maxLength={160} value={affiliation} onChange={e=>setAffiliation(e.target.value)}/></label><button disabled={busy||!verifiedEmail} className="button button-dark">Request verification ↗</button></form>}
      </section>
    </div>
-   {admin&&<section className="workspace-panel admin-panel"><p className="small-label">PLATFORM ADMINISTRATION</p><p>Identity and election verification are independent of debate responsiveness decisions.</p><Link href="/workspace/admin/elections" className="inline-arrow">Manage election cycles ↗</Link><h2>Pending candidacies</h2>
+   {admin&&<section className="workspace-panel admin-panel"><p className="small-label">PLATFORM ADMINISTRATION</p><p>Identity and election verification are independent of debate responsiveness decisions.</p><p><Link href="/workspace/scanner" className="inline-arrow">Connect your laptop scanner ↗</Link></p><Link href="/workspace/admin/elections" className="inline-arrow">Manage election cycles ↗</Link><h2>Pending candidacies</h2>
   <label className="verification-review">Required public procedural reason for an approval or rejection
    <textarea rows={4} maxLength={2000} value={verificationReason} onChange={e=>setVerificationReason(e.target.value)} placeholder="Describe the independent identity and candidacy evidence reviewed, or the concrete verification gap."/>
   </label>

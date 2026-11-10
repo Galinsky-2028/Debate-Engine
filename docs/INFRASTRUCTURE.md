@@ -1,4 +1,18 @@
-# Infrastructure binding (2026-10-10)
+# Current infrastructure binding (owner replaced targets November 9, 2026)
+
+- GitHub: https://github.com/Galinsky-2028/Debate-Engine
+- Render workspace: `tea-dbl0kcbm8hqs738ptf3g` (Phillip's workspace).
+- Neon project: `cool-dawn-42333373` (Public Debate Engine), Ohio, PostgreSQL 17, free plan.
+- Production branch: `br-tiny-haze-bdurpbbb`, database `debate`.
+- Isolated validation branch: `br-silent-haze-bd3zazgn`.
+- Private media bucket: `debate-originals`, Neon S3-compatible storage. Never expose its write credentials in browser code.
+- Auth: Managed Better Auth on the production branch, Google and verified email accounts. The owner's chosen sign-in email is `galinsky2028@gmail.com`; administrator privileges are bound to its provisioned immutable Auth user ID via the runtime secret configuration, never granted by email matching.
+- Initial host: free Render web service plus an authenticated operator-laptop scanner. Keep paid `Dockerfile.production` available but do not provision paid compute without cost approval. See [laptop processing](LAPTOP_PROCESSING.md).
+- Paid account billing: deliberately inactive. Hosted preparation requires a server-stored entitlement; there is no public self-upgrade API.
+
+The owner explicitly said to forget the inaccessible old resources and use the connected Render/Neon accounts. The historical targets below are retained as history and are not current deployment destinations.
+
+## Historical binding (2026-10-10)
 
 These identifiers were supplied by the project owner. They are **targets**, not evidence that deployment is running.
 

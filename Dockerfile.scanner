@@ -1,0 +1,12 @@
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates clamav-daemon clamav-freshclam tini \
+ && rm -rf /var/lib/apt/lists/* && usermod -aG clamav node
+WORKDIR /app
+COPY --chown=node:node packages/media/clamav.ts packages/media/laptop-worker.ts ./packages/media/
+COPY --chown=node:node scripts/laptop-scanner.mjs ./scripts/laptop-scanner.mjs
+COPY scripts/start-laptop-scanner.sh /usr/local/bin/start-scanner
+COPY ops/clamd.conf /etc/clamav/clamd.conf
+COPY ops/freshclam.conf /etc/clamav/freshclam.conf
+RUN chmod 755 /usr/local/bin/start-scanner
+ENV CLAMD_SOCKET_PATH=/run/clamav/clamd.ctl
+ENTRYPOINT ["/usr/bin/tini","--","/usr/local/bin/start-scanner"]
