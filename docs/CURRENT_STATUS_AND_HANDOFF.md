@@ -4,6 +4,8 @@
 
 The owner replaced the inaccessible old Render/Neon targets; current bindings are in `docs/INFRASTRUCTURE.md` and `AGENTS.md`. Browser preparation now runs locally on Mac/Windows/Linux for free accounts; the hosted option is guarded by a server-side paid entitlement with billing intentionally deferred. An independent trusted scanner remains required for both paths. A Docker-based, outbound-only operator-laptop worker supports free web hosting; the fully hosted ClamAV runtime remains in `Dockerfile.production`. Pair the operator from `/workspace/scanner`.
 
+The first-upload service is now live at https://public-debate-engine.onrender.com on free Render compute. [Deployment evidence and first-use steps](FIRST_UPLOAD_DEPLOYMENT.md) record the exact source, resource IDs, tests, successful live scanner round trip, and remaining owner actions. The temporary QA scanner was stopped after testing; do not presume an agent or scanner keeps running between sessions.
+
 Release diagnostics now read canonical `registry/prs.json`, report missing operational approvals instead of crashing on the retired roadmap redirect, and follow the owner's AI-assisted review policy without claiming independent human certification. The full lifecycle acceptance entries remain pending; a first-upload deployment must not be reported as completion of all 44 work units.
 
 The dated status below is historical and does not override current infrastructure bindings.

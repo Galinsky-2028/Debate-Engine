@@ -2,6 +2,7 @@
 
 - GitHub: https://github.com/Galinsky-2028/Debate-Engine
 - Render workspace: `tea-dbl0kcbm8hqs738ptf3g` (Phillip's workspace).
+- Live Render service: `srv-dbp9png8v5cc73dkk830`, https://public-debate-engine.onrender.com, free plan, Ohio, `main`, manual deploys. First live deploy: `dep-dbp9po08v5cc73dkk8u0`, commit `a82af3ca03960ffcc8119cb8cb08f6d32476a468`. See [first-upload evidence](FIRST_UPLOAD_DEPLOYMENT.md).
 - Neon project: `cool-dawn-42333373` (Public Debate Engine), Ohio, PostgreSQL 17, free plan.
 - Production branch: `br-tiny-haze-bdurpbbb`, database `debate`.
 - Isolated validation branch: `br-silent-haze-bd3zazgn`.

@@ -14,7 +14,9 @@ A reusable, candidate-neutral platform for asynchronous, policy-centered debates
 
 ## Development status
 
-**Foundation in progress. Not launched.** No candidate's actual debate content, invitations, endorsements, identities, or policy agreement have been published. A passing CI build alone does not establish production readiness.
+**First-upload deployment is live:** https://public-debate-engine.onrender.com. Sign in, register and verify your candidacy, and connect the platform operator's laptop scanner before uploading. Free accounts prepare originals locally in a browser; paid hosted preparation is staged with billing inactive. The current original-file limit is 60 MiB. See [setup and verification evidence](docs/FIRST_UPLOAD_DEPLOYMENT.md).
+
+Full debate-lifecycle operational acceptance remains pending. No candidate positions, invitations, endorsements or policy agreements were fabricated to populate the deployment. Passing CI is separate from operational acceptance.
 
 ## Local development
 
