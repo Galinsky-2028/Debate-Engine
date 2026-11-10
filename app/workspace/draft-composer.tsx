@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import Link from "next/link";
 import DraftReview,{type PrivateReview} from "./draft-review";
+import {prepareMediaLocally} from '../../lib/prepare-media';
 type Mode="video"|"audio"|"writing";
 type Candidate={id:string;public_name:string;office_title:string;election_id:string;verification_status:string};
 type Contribution={id:string;candidate_name:string;kind:string;candidacy_id:string;branch_id:string|null;parent_submission_id:string|null};
@@ -25,21 +26,25 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
  const [draft,setDraft]=useState<Draft|null>(null),[review,setReview]=useState<PrivateReview|null>(null),[phase,setPhase]=useState<"edit"|"review">("edit");
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState("");
  const [uploadProgress,setUploadProgress]=useState("");
+ const [processingTier,setProcessingTier]=useState<'free'|'paid'>('free');
+ const [preparationMode,setPreparationMode]=useState<'local'|'hosted'>('local');
  const [scannerStatus,setScannerStatus]=useState<"checking"|"online"|"offline">("checking");
  useEffect(()=>{
   Promise.all([fetch("/api/account/me",{cache:"no-store"}).then(r=>r.json()),debateId?fetch("/api/debates/"+debateId,{cache:"no-store"}).then(r=>r.json()):Promise.resolve(null)])
   .then(([account,debate])=>{
    setRecord(debate);
+   setProcessingTier(account.processingTier==='paid'?'paid':'free');
    setCandidates((account.candidacies||[]).filter((c:Candidate)=>c.verification_status==="verified"&&(!debate||c.election_id===debate.debate.election_id)));
    if(debate?.debate?.allowed_modalities?.length){setEnabled(debate.debate.allowed_modalities);setMode(debate.debate.allowed_modalities[0]);}
   }).catch(()=>setNotice("Cannot load eligible candidate details."));
  },[debateId]);
  useEffect(()=>{
   let mounted=true;
-  fetch("/api/capabilities",{cache:"no-store"}).then(r=>r.json()).then(j=>{
+  const refresh=()=>fetch("/api/capabilities",{cache:"no-store"}).then(r=>r.json()).then(j=>{
    if(mounted)setScannerStatus(j.newMediaUploadPreflight==="available_for_validation"?"online":"offline");
   }).catch(()=>{if(mounted)setScannerStatus("offline");});
-  return ()=>{mounted=false;};
+  void refresh();const timer=setInterval(refresh,10000);
+  return ()=>{mounted=false;clearInterval(timer);};
  },[]);
  const parents=useMemo(()=>{
   if(!record||!candidateId)return [];
@@ -64,9 +69,16 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   if(!file||!candidateId)throw Error("Select a verified candidate and original media file.");
   if(file.size<64||file.size>60*1024*1024)throw Error("Choose an original between 64 bytes and 60 MiB.");
   // A digest binds a resumed session to the exact original, not just a filename.
-  setUploadProgress("Checking the selected original...");
-  const digestBytes=new Uint8Array(await crypto.subtle.digest("SHA-256",await file.arrayBuffer()));
-  const sha256=Array.from(digestBytes,x=>x.toString(16).padStart(2,"0")).join("");
+  setUploadProgress(preparationMode==='local'?"Preparing the original on your laptop. Keep this tab open…":"Checking file identity before hosted preparation…");
+  let sha256:string;
+  if(preparationMode==='local'){
+   const local=await prepareMediaLocally(file,mode==='audio'?'audio':'video');
+   sha256=local.sha256;
+   setUploadProgress(local.durationSeconds?"Prepared locally: "+Math.round(local.durationSeconds)+" seconds. Saving your unedited original…":"File identity prepared locally. The platform will verify this media format before publication.");
+  }else{
+   const digestBytes=new Uint8Array(await crypto.subtle.digest("SHA-256",await file.arrayBuffer()));
+   sha256=Array.from(digestBytes,x=>x.toString(16).padStart(2,"0")).join("");
+  }
   const storageKey="pde-original-v1:"+candidateId+":"+mode+":"+file.name+":"+file.size+":"+file.lastModified+":"+sha256;
   let id="";try{id=window.localStorage.getItem(storageKey)||""}catch{}
   let session:{sessionId:string;partCount:number;partSizeBytes:number;status?:string;expectedSha256?:string;sizeBytes?:number;uploadedParts?:number[];mediaAssetId?:string|null}|null=null;
@@ -81,10 +93,9 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   if(session?.status==="completed"&&session.mediaAssetId){
    setMediaId(session.mediaAssetId);setUploadProgress("Original already validated.");return session.mediaAssetId;
   }
-  if(session?.status==="finalizing")throw Error("Your previous upload is finishing validation. Retry in a moment.");
   if(!session){
    const response=await fetch("/api/media/uploads",{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({candidacyId:candidateId,modality:mode,sizeBytes:file.size,mimeType:file.type||"application/octet-stream",sha256})});
+    body:JSON.stringify({candidacyId:candidateId,modality:mode,sizeBytes:file.size,mimeType:file.type||"application/octet-stream",sha256,preparationMode})});
    const data=await response.json();
    if(!response.ok)throw Error(data.error||"Cannot begin original upload.");
    session=data;
@@ -93,6 +104,7 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   if(!session)throw Error("Storage session unavailable.");
   const completed=new Set(session.uploadedParts||[]);
   for(let n=1;n<=session.partCount;n++){
+   if(session.status==="finalizing")break;
    if(completed.has(n))continue;
    setUploadProgress("Saving original chunk "+n+" of "+session.partCount+". Interrupted uploads can resume.");
    const from=(n-1)*session.partSizeBytes,to=Math.min(n*session.partSizeBytes,file.size);
@@ -197,7 +209,7 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
     {enabled.map(opt=><option key={opt} value={opt}>{opt[0].toUpperCase()+opt.slice(1)}</option>)}
    </select></label>
    {mode==="writing"?<label>Complete written speech<textarea className="speech-textarea" required maxLength={100000} value={speech} onChange={e=>setSpeech(e.target.value)}/><small>{speech.trim()?speech.trim().split(/\s+/).length:0} words · {speech.length} characters</small></label>:
-    <><label>Unedited original {mode} (resumable, 60 MiB maximum)<input required={!mediaId} type="file" accept={mode==="audio"?"audio/*,.m4a,.mp3,.wav,.flac,.ogg,.webm":"video/mp4,video/quicktime,video/webm"} onChange={e=>{setFile(e.target.files?.[0]||null);setMediaId("");setDraft(null);}}/></label>
+    <><label>Prepare your upload<select value={preparationMode} onChange={e=>{setPreparationMode(e.target.value as 'local'|'hosted');setMediaId('');setDraft(null);}}><option value="local">On this laptop — free</option><option value="hosted" disabled={processingTier!=='paid'}>On the website — paid processing{processingTier!=='paid'?' (billing not active yet)':''}</option></select><small>Local preparation works in a current browser on Mac, Windows, or Linux. It may be slower on older laptops. Your original remains unedited; independent publication safety checks apply to both options.</small></label><label>Unedited original {mode} (resumable, 60 MiB maximum)<input required={!mediaId} type="file" accept={mode==="audio"?"audio/*,.m4a,.mp3,.wav,.flac,.ogg,.webm":"video/mp4,video/quicktime,video/webm"} onChange={e=>{setFile(e.target.files?.[0]||null);setMediaId("");setDraft(null);}}/></label>
      <label>Private speech transcript for optional AI analysis<textarea value={transcript} maxLength={48000} onChange={e=>setTranscript(e.target.value)} placeholder="Add an accurate transcript of your speech. Without one, the assistant will not pretend to have analyzed the audio/video."/></label></>}
    {kind==="opening"?<fieldset><legend>Opening questions (one to three)</legend>{questions.map((q,i)=><div className="question-editor" key={i}>
     <label>Question {i+1}<textarea required maxLength={600} value={q.text} onChange={e=>setQuestions(questions.map((v,n)=>i===n?{...v,text:e.target.value}:v))}/></label>

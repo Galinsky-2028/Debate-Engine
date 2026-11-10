@@ -17,8 +17,9 @@ Start with [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) and [docs/DEBATE
 
 - Develop approved roadmap milestones in dependency order; chain pull requests when checks pass, without requiring routine approvals.
 - Stop on failing checks, merge conflicts, missing permissions/credentials, safety issues, unauthorized spending, or material unapproved choices.
-- Treat Render project `prj-db5cv0nlot8c73eh9nng` and Neon project `rapid-moon-08277391` as the **only** designated Debate Engine infrastructure. Do not deploy into a similarly named or unrelated project.
-- Existing Neon production branch is `br-autumn-hall-b5e4r3l2`; use a separate branch for dev migrations and tests.
+- On November 9, 2026, the owner replaced the inaccessible old infrastructure and directed deployment using the currently connected Render and Neon accounts. Use Render workspace `tea-dbl0kcbm8hqs738ptf3g` and Neon project `cool-dawn-42333373`.
+- Current Neon production branch is `br-tiny-haze-bdurpbbb`; development validation branch is `br-silent-haze-bd3zazgn`. Keep fictional fixtures out of production.
+- Free candidate accounts prepare originals in their laptop browser (Mac, Windows, Linux); paid processing is prepared but billing activation is deferred by the owner. An uploader's local preparation never substitutes for an independent media safety verdict. The platform operator may run the authenticated scanner worker on their laptop to avoid paid hosting. Preserve the fully hosted scanner implementation for later paid hosting.
 - No external candidate invitations or published candidate positions until the real candidate confirms them.
 - Never hard-code the initial candidate, their issues, or the presidential race into reusable domain packages.
 - Published contributions are not deletable by debate originators. Only independently governed legal/security restrictions may affect visibility, with an auditable process.

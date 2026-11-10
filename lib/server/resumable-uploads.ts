@@ -37,16 +37,17 @@ function active(s:Session){
  if(new Date(s.expires_at).getTime()<=Date.now())throw new HttpError(410,"Upload session expired. Select the original again to start a new upload.");
 }
 export async function createMediaSession(input:{
- candidacyId:string;authSubject:string;modality:Modality;sizeBytes:number;claimedMime:string;expectedSha256:string
+ candidacyId:string;authSubject:string;modality:Modality;sizeBytes:number;claimedMime:string;expectedSha256:string;preparationMode?:'local'|'hosted'
 }){
  let count:number;
  try{count=partCount(input.sizeBytes)}catch(e){throw new HttpError(413,(e as Error).message)}
  if(!/^[0-9a-f]{64}$/.test(input.expectedSha256))throw new HttpError(400,"The original SHA-256 digest is required.");
  const mime=originalStorageMime(input.modality,input.claimedMime);
  const owner=await database().query(
-  "SELECT 1 FROM candidacies c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.verification_status='verified' AND a.identity_provider='neon-auth' AND a.external_subject=$2",
+  "SELECT a.processing_tier FROM candidacies c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.verification_status='verified' AND a.identity_provider='neon-auth' AND a.external_subject=$2",
   [input.candidacyId,input.authSubject]);
  if(!owner.rowCount)throw new HttpError(403,"Only a verified candidate may upload their original.");
+ if(input.preparationMode==='hosted'&&owner.rows[0].processing_tier!=='paid')throw new HttpError(403,'Hosted preparation requires an activated paid processing entitlement.');
  await requireScannerPreflight();
  const id=randomUUID(),mediaId=randomUUID();
  const key="originals/"+input.candidacyId+"/"+mediaId+"/source";
@@ -58,8 +59,8 @@ export async function createMediaSession(input:{
  if(!created.UploadId)throw new HttpError(503,"The storage provider did not create a resumable session.");
  try{
   await database().query(
-   "INSERT INTO media_upload_sessions(id,owner_candidacy_id,media_asset_id,storage_key,storage_upload_id,modality,claimed_mime,expected_sha256,declared_size_bytes,part_count) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-   [id,input.candidacyId,mediaId,key,created.UploadId,input.modality,mime,input.expectedSha256,input.sizeBytes,count]);
+   "INSERT INTO media_upload_sessions(id,owner_candidacy_id,media_asset_id,storage_key,storage_upload_id,modality,claimed_mime,expected_sha256,declared_size_bytes,part_count,preparation_mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+   [id,input.candidacyId,mediaId,key,created.UploadId,input.modality,mime,input.expectedSha256,input.sizeBytes,count,input.preparationMode||'local']);
  }catch(e){
   await client.send(new AbortMultipartUploadCommand({Bucket:bucket,Key:key,UploadId:created.UploadId}),s3Timeout()).catch(()=>{});
   throw e;
@@ -111,7 +112,7 @@ async function persistedOriginal(s:Session){
   throw new HttpError(422,"The stored original was incomplete.");
  const actual=createHash("sha256").update(data).digest("hex");
  if(actual!==s.expected_sha256)throw new HttpError(422,"The stored original does not match the selected file. Start a fresh session.");
- const scanner=await scanOriginalBeforeValidation(data);
+ const scanner=await scanOriginalBeforeValidation(data,s.storage_key);
  const info=s.modality==="audio"?examineAudio(data,s.claimed_mime):examineVideo(data,s.claimed_mime);
  if(!info.mime.startsWith(s.modality+"/"))throw new HttpError(415,"The uploaded container has the wrong medium.");
  await transaction(async db=>{

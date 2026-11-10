@@ -8,10 +8,11 @@ export async function POST(request:NextRequest){
   const b=record(await parseJson(request));
   const modality=b.modality;
   if(modality!=="audio"&&modality!=="video")throw new HttpError(400,"A video or audio medium is required.");
+  if(b.preparationMode!==undefined&&b.preparationMode!=='local'&&b.preparationMode!=='hosted')throw new HttpError(400,'Invalid preparation mode.');
   const session=await createMediaSession({
    authSubject:user.id,candidacyId:uuid(b.candidacyId,"candidacyId"),modality,
    sizeBytes:Number(b.sizeBytes),claimedMime:typeof b.mimeType==="string"?b.mimeType:"",
-   expectedSha256:typeof b.sha256==="string"?b.sha256:""
+   expectedSha256:typeof b.sha256==="string"?b.sha256:"",preparationMode:b.preparationMode as 'local'|'hosted'|undefined
   });
   return NextResponse.json(session,{status:201,headers:{"Cache-Control":"private,no-store"}});
  }catch(e){return jsonError(e)}

@@ -1,5 +1,13 @@
 # Public Debate Engine current development and handoff status
 
+## November 9 deployment work
+
+The owner replaced the inaccessible old Render/Neon targets; current bindings are in `docs/INFRASTRUCTURE.md` and `AGENTS.md`. Browser preparation now runs locally on Mac/Windows/Linux for free accounts; the hosted option is guarded by a server-side paid entitlement with billing intentionally deferred. An independent trusted scanner remains required for both paths. A Docker-based, outbound-only operator-laptop worker supports free web hosting; the fully hosted ClamAV runtime remains in `Dockerfile.production`. Pair the operator from `/workspace/scanner`.
+
+Release diagnostics now read canonical `registry/prs.json`, report missing operational approvals instead of crashing on the retired roadmap redirect, and follow the owner's AI-assisted review policy without claiming independent human certification. The full lifecycle acceptance entries remain pending; a first-upload deployment must not be reported as completion of all 44 work units.
+
+The dated status below is historical and does not override current infrastructure bindings.
+
 **Reviewed:** October 15, 2026. **Product:** Public Debate Engine. **Current repository:** [`neophilism/Debate-Engine`](https://github.com/neophilism/Debate-Engine) (the approved administrative rename is still pending).
 
 ## Canonical resources

@@ -1,5 +1,5 @@
 import {NextResponse} from "next/server";
-import {probeClamd} from "../../../packages/media/clamav";
+import {scannerOnline as checkScanner} from '../../../lib/server/scanner-status';
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
 /**
@@ -11,7 +11,7 @@ export async function GET(){
   process.env.AWS_ENDPOINT_URL_S3?.startsWith("https://")&&
   process.env.MEDIA_BUCKET&&process.env.AWS_ACCESS_KEY_ID&&process.env.AWS_SECRET_ACCESS_KEY
  );
- const scannerOnline=await probeClamd(process.env.CLAMD_SOCKET_PATH||"");
+ const scannerOnline=await checkScanner();
  return NextResponse.json({
   mediaScanner:scannerOnline?"online":"unavailable",
   mediaStorageConfigured:storageConfigured,

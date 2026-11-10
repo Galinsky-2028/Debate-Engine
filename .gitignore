@@ -8,3 +8,4 @@ coverage/
 *.tsbuildinfo
 .neon/
 .DS_Store
+scanner.env
