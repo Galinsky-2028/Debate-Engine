@@ -1,0 +1,36 @@
+name: Scheduled operations
+# Free hosting has no always-on worker. Every 15 minutes this workflow proves its identity to the app with a
+# short-lived GitHub OIDC token (no stored secret) and runs one bounded, idempotent batch of deadline jobs and
+# outbox deliveries. The app accepts only this workflow file, on main, in this repository.
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: scheduled-operations
+  cancel-in-progress: false
+jobs:
+  run:
+    if: github.repository == 'Galinsky-2028/Debate-Engine' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Run one bounded batch of deadline jobs and deliveries
+        env:
+          PDE_URL: https://public-debate-engine.onrender.com
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            # A fresh identity token per attempt; the free web service may need a cold start.
+            OIDC=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=public-debate-engine-operations" | jq -r .value)
+            echo "::add-mask::$OIDC"
+            status=$(curl -sS -o /tmp/result.json -w '%{http_code}' --max-time 150 -X POST \
+              -H "Authorization: Bearer $OIDC" "$PDE_URL/api/operations/scheduled-run" || echo 000)
+            if [ "$status" = "200" ]; then cat /tmp/result.json; echo; exit 0; fi
+            echo "Attempt $attempt returned HTTP $status"; cat /tmp/result.json 2>/dev/null || true; sleep 30
+          done
+          exit 1

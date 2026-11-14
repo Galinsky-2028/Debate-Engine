@@ -34,3 +34,19 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 - Render seconds are measured as output media seconds, not CPU time.
 - Monitors are pull-only; no alerting channel is configured.
 - No spend data from Render/Neon/storage providers is read; budgets are operator-set caps.
+
+## Scheduled runs on free hosting
+
+The free Render web service has no always-on worker, so `.github/workflows/scheduled-operations.yml` calls
+`POST /api/operations/scheduled-run` every 15 minutes from a free GitHub-hosted runner. No secret is stored anywhere:
+the workflow requests a short-lived GitHub Actions OIDC token with audience `public-debate-engine-operations`, and the
+endpoint verifies its RS256 signature against GitHub's published keys and accepts it only when the issuer, audience,
+repository id `1413777544` (`Galinsky-2028/Debate-Engine`), `refs/heads/main`, the exact workflow file and a
+`schedule`/`workflow_dispatch` event all match (`packages/domain/github-oidc.ts`). A fork, another branch, a pull
+request or another workflow cannot trigger it. Optionally, another scheduler can use a 64+ character
+`OPERATIONS_RUN_TOKEN` environment variable instead (constant-time comparison).
+
+Each call runs one bounded batch of deadline jobs and outbox deliveries — every step is idempotent, so overlapping or
+replayed calls are harmless — and records a `scheduled_operations_run` audit event. `/workspace/admin/operations`
+shows when the runner last ran and how many runs happened in the past hour. A sleeping free service is woken by the
+call and retried once. Tests: `tests/scheduled-token.test.ts`, `tests/github-oidc.test.ts`.
