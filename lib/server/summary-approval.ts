@@ -1,6 +1,21 @@
 import "server-only";
 import {transaction} from "./db";
 import {HttpError} from "./http";
+import {ARTIFACT_GRANTS_CURRENT_SQL} from "./policy-agreement-sql";
+
+/**
+ * PDE-20: every clip needs a CURRENT clip-scoped edit grant from its original
+ * owner. A revoked grant counts as absent, so rendering, approval and release
+ * of anything not yet released fail closed.
+ */
+async function assertCurrentEditGrants(db:import("pg").PoolClient,artifactId:string){
+ const ok=await db.query<{current:boolean}>(ARTIFACT_GRANTS_CURRENT_SQL,[artifactId]);
+ if(ok.rows[0]?.current)return;
+ const revoked=await db.query<{owner:string;revoked_at:Date}>(
+  "SELECT c.public_name AS owner,r.revoked_at FROM media_permissions p JOIN media_permission_revocations r ON r.permission_id=p.id JOIN candidacies c ON c.id=p.candidate_id WHERE p.permission='edit' AND p.scope->>'artifactId'=$1 ORDER BY r.revoked_at LIMIT 1",[artifactId]);
+ if(revoked.rowCount)throw new HttpError(409,revoked.rows[0].owner+" withdrew editing permission for future uses on "+new Date(revoked.rows[0].revoked_at).toISOString().slice(0,10)+". This summary cannot be rendered, approved or released unless a new permission is granted.");
+ throw new HttpError(409,"All original-video owners must grant clip-scoped editing rights before rendering, approval or release.");
+}
 
 async function branchMember(db:import("pg").PoolClient,branchId:string,candidateId:string,subject:string){
  const r=await db.query<{originator_candidacy_id:string;responder_candidacy_id:string;debate_id:string}>(
@@ -20,12 +35,7 @@ export async function enqueueRender(input:{branchId:string;artifactId:string;can
    "SELECT source_manifest FROM derivative_artifacts WHERE id=$1",[input.artifactId]);
   const clips=plan.rows[0].source_manifest.clips;
   if(!Array.isArray(clips)||!clips.length)throw new HttpError(409,"An editorial manifest with clips is required.");
-  for(const clip of clips){
-   const grant=await db.query(
-    "SELECT 1 FROM media_permissions p JOIN media_assets m ON m.id=p.media_asset_id WHERE p.media_asset_id=$1 AND m.owner_candidacy_id=p.candidate_id AND p.permission='edit' AND p.scope->>'artifactId'=$2 AND (p.scope->>'clipStart')::numeric<=$3 AND (p.scope->>'clipEnd')::numeric>=$4 LIMIT 1",
-    [clip.mediaAssetId,input.artifactId,clip.startSeconds,clip.endSeconds]);
-   if(!grant.rowCount)throw new HttpError(409,"All original-video owners must grant clip-scoped editing rights before rendering.");
-  }
+  await assertCurrentEditGrants(db,input.artifactId);
   const job=await db.query<{id:string}>(
    "INSERT INTO durable_jobs(job_type,dedupe_key,arguments) VALUES('render_debate_summary',$1,$2::jsonb) ON CONFLICT(job_type,dedupe_key) DO UPDATE SET state='queued',available_at=now(),attempt_count=0,last_error=NULL,leased_until=NULL WHERE durable_jobs.state IN('queued','failed') RETURNING id",
    [input.artifactId,JSON.stringify({artifactId:input.artifactId})]);
@@ -44,6 +54,7 @@ export async function approveRendered(input:{branchId:string;artifactId:string;c
   if(!["awaiting_approval","approved"].includes(a.status)||!a.rendered_storage_key)
     throw new HttpError(409,"Only actually rendered outputs can be approved.");
   if(a.output_sha256!==input.outputSha256)throw new HttpError(409,"Approval digest differs from rendered file.");
+  await assertCurrentEditGrants(db,input.artifactId);
   const row=await db.query("SELECT 1 FROM derivative_approvals WHERE artifact_id=$1 AND candidacy_id=$2",[input.artifactId,input.candidateId]);
   if(row.rowCount)throw new HttpError(409,"Candidate already approved this file.");
   await db.query("INSERT INTO derivative_approvals(artifact_id,output_sha256,candidacy_id) VALUES($1,$2,$3)",[input.artifactId,input.outputSha256,input.candidateId]);
@@ -63,12 +74,17 @@ export async function releaseSummary(input:{branchId:string;artifactId:string;ca
   const art=await db.query<{rendered_storage_key:string|null}>(
    "SELECT rendered_storage_key FROM derivative_artifacts WHERE id=$1 AND branch_id=$2 AND status='approved' FOR UPDATE",[input.artifactId,input.branchId]);
   if(!art.rowCount||!art.rows[0].rendered_storage_key)throw new HttpError(409,"Both candidate approvals of a rendered file are required.");
-  const policy=await db.query<{id:string}>(
-   "SELECT p.id FROM policy_versions p WHERE p.branch_id=$1 AND (SELECT e.action FROM policy_endorsement_events e WHERE e.policy_version_id=p.id AND e.candidacy_id=$2 ORDER BY e.event_order DESC LIMIT 1)='accept' AND (SELECT e.action FROM policy_endorsement_events e WHERE e.policy_version_id=p.id AND e.candidacy_id=$3 ORDER BY e.event_order DESC LIMIT 1)='accept' LIMIT 1",
+  await assertCurrentEditGrants(db,input.artifactId);
+  const policy=await db.query<{id:string;scope:string}>(
+   "SELECT p.id,p.scope FROM policy_versions p WHERE p.branch_id=$1 AND (SELECT e.action FROM policy_endorsement_events e WHERE e.policy_version_id=p.id AND e.candidacy_id=$2 ORDER BY e.event_order DESC LIMIT 1)='accept' AND (SELECT e.action FROM policy_endorsement_events e WHERE e.policy_version_id=p.id AND e.candidacy_id=$3 ORDER BY e.event_order DESC LIMIT 1)='accept' ORDER BY (p.scope='full') DESC,p.created_at DESC LIMIT 1",
    [input.branchId,p.originator_candidacy_id,p.responder_candidacy_id]);
   if(!policy.rowCount)throw new HttpError(409,"No jointly accepted policy exists for this branch.");
   await db.query("UPDATE derivative_artifacts SET status='released' WHERE id=$1",[input.artifactId]);
-  await db.query("INSERT INTO publication_events(debate_id,branch_id,actor_candidacy_id,kind,object_id) VALUES($1,$2,$3,'summary_released',$4)",[p.debate_id,input.branchId,input.candidateId,input.artifactId]);
-  return {released:true};
+  // A summary of a partial agreement may be released, but always carries the partial label.
+  const partial=policy.rows[0].scope==="partial";
+  const label=partial?"Summary of a PARTIAL policy agreement — the debate is not resolved":"Summary of a joint policy agreement";
+  await db.query("INSERT INTO publication_events(debate_id,branch_id,actor_candidacy_id,kind,object_id,payload) VALUES($1,$2,$3,'summary_released',$4,$5::jsonb)",
+   [p.debate_id,input.branchId,input.candidateId,input.artifactId,JSON.stringify({policyVersionId:policy.rows[0].id,policyScope:policy.rows[0].scope,label})]);
+  return {released:true,policyScope:policy.rows[0].scope,label};
  });
 }

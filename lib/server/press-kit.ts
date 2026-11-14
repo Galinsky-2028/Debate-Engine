@@ -1,6 +1,11 @@
 import "server-only";
 import {database} from "./db";
 import {HttpError} from "./http";
+import {JOINT_AGREEMENT_RECORDS_SQL,ENDORSEMENT_HISTORY_SQL,FUTURE_USE_WITHDRAWALS_SQL} from "./policy-agreement-sql";
+import {agreementRecordLabel,agreementRecordSentence,futureUseNotice,type AgreementScope} from "../../packages/domain/policy-view";
+type AgreementRow={policy_version_id:string;scope:AgreementScope;content_sha256:string;policy_body:string;changes_summary:string;
+ remaining_disagreements:string;addressed_question_ids:string[];attachment_document_ids:string[];created_at:string;parent_version_id:string|null;
+ author_name:string;first_joint_at:string;last_joint_at:string;currently_joint:boolean;withdrawn_at:string|null;withdrawn_by:string|null};
 
 export async function pressKitForBranch(branchId:string){
  const header=await database().query<{
@@ -10,11 +15,22 @@ export async function pressKitForBranch(branchId:string){
  }>("SELECT d.id AS debate_id,d.title,d.proposition,d.published_at,origin.public_name AS originator_name,d.originator_candidacy_id AS originator_id,contender.public_name AS contender_name,b.responder_candidacy_id AS contender_id,office.title AS office,cycle.label AS election_label FROM debate_branches b JOIN debates d ON d.id=b.debate_id JOIN candidacies origin ON origin.id=d.originator_candidacy_id JOIN candidacies contender ON contender.id=b.responder_candidacy_id JOIN election_cycles cycle ON cycle.id=d.election_id JOIN offices office ON office.id=cycle.office_id WHERE b.id=$1 AND d.status='published'",[branchId]);
  if(!header.rowCount)throw new HttpError(404,"Public debate branch not found.");
  const context=header.rows[0];
- const policies=await database().query<{
-  policy_version_id:string;policy_body:string;content_sha256:string;created_at:string;author_name:string;
- }>("SELECT p.id AS policy_version_id,p.policy_body,p.content_sha256,p.created_at,c.public_name AS author_name FROM policy_versions p JOIN candidacies c ON c.id=p.proposed_by_candidacy_id JOIN policy_acceptances ao ON ao.policy_version_id=p.id AND ao.candidacy_id=$2 JOIN policy_acceptances ar ON ar.policy_version_id=p.id AND ar.candidacy_id=$3 WHERE p.branch_id=$1 ORDER BY p.created_at DESC,p.id DESC LIMIT 1",[branchId,context.originator_id,context.contender_id]);
- if(!policies.rowCount)throw new HttpError(409,"This branch has no mutually accepted policy yet.");
- const policy=policies.rows[0];
+ const records=await database().query<AgreementRow>(JOINT_AGREEMENT_RECORDS_SQL,[branchId]);
+ if(!records.rowCount)throw new HttpError(409,"This branch has no jointly accepted policy yet.");
+ // Prefer a current joint agreement; otherwise disclose the most recent withdrawn one honestly.
+ const policy=records.rows[0];
+ const [questions,attachments,history,withdrawals,releases]=await Promise.all([
+  database().query<{id:string;question_text:string;ordinal:number;asked_by:string}>(
+   "SELECT q.id,q.question_text,q.ordinal,c.public_name AS asked_by FROM questions q JOIN submissions s ON s.id=q.submission_id JOIN candidacies c ON c.id=q.asked_by_candidacy_id WHERE s.debate_id=$1 AND s.published_at IS NOT NULL AND (s.branch_id=$2 OR s.kind='opening') ORDER BY s.published_at,q.ordinal",[context.debate_id,branchId]),
+  database().query<{id:string;label:string;filename:string;sha256:string}>(
+   "SELECT x.id,x.label,x.filename,x.sha256 FROM submission_documents x WHERE x.id=ANY($1::uuid[]) ORDER BY x.sha256",[policy.attachment_document_ids]),
+  database().query<{candidate_name:string;action:string;occurred_at:string}>(ENDORSEMENT_HISTORY_SQL,[[policy.policy_version_id]]),
+  database().query<{artifact_id:string;owner_name:string;revoked_at:string}>(FUTURE_USE_WITHDRAWALS_SQL,[branchId]),
+  database().query<{object_id:string;payload:{policyScope?:string;policyVersionId?:string}}>(
+   "SELECT object_id,payload FROM publication_events WHERE branch_id=$1 AND kind='summary_released'",[branchId])
+ ]);
+ const addressed=new Set(policy.addressed_question_ids);
+ const status={scope:policy.scope,currentlyJoint:policy.currently_joint,withdrawnAt:policy.withdrawn_at,withdrawnBy:policy.withdrawn_by};
  const [videos,documents,summaries]=await Promise.all([
   database().query<{submission_id:string;kind:string;candidate_name:string;sha256:string;published_at:string;media_asset_id:string;duration_seconds:string}>(
    "SELECT s.id AS submission_id,s.kind,c.public_name AS candidate_name,m.original_sha256 AS sha256,s.published_at,m.id AS media_asset_id,m.duration_seconds FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[context.debate_id,branchId]),
@@ -24,7 +40,7 @@ export async function pressKitForBranch(branchId:string){
    "SELECT id,output_sha256,source_manifest,duration_seconds FROM derivative_artifacts WHERE branch_id=$1 AND status='released' AND rendered_storage_key IS NOT NULL ORDER BY rendered_at DESC,id",[branchId])
  ]);
  return {
-  schemaVersion:"1.0.0" as const,
+  schemaVersion:"1.1.0" as const,
   kind:"mutually_agreed_policy_press_kit" as const,
   generatedAt:new Date().toISOString(),
   debate:{id:context.debate_id,title:context.title,proposition:context.proposition,
@@ -33,11 +49,31 @@ export async function pressKitForBranch(branchId:string){
   branch:{id:branchId,originator:context.originator_name,contender:context.contender_name},
   agreement:{versionId:policy.policy_version_id,body:policy.policy_body,
    sha256:policy.content_sha256,proposedBy:policy.author_name,createdAt:policy.created_at,
-   description:"Both debate participants explicitly accepted this exact policy version; the platform does not certify it as objectively best."},
+   parentVersionId:policy.parent_version_id,
+   scope:policy.scope,resolvesDebate:policy.scope==="full"&&policy.currently_joint,
+   currentlyJoint:policy.currently_joint,withdrawnAt:policy.withdrawn_at,withdrawnBy:policy.withdrawn_by,
+   firstJointAt:policy.first_joint_at,lastJointAt:policy.last_joint_at,
+   label:agreementRecordLabel(status),
+   changesSummary:policy.changes_summary,remainingDisagreements:policy.remaining_disagreements,
+   addressedQuestions:questions.rows.filter(q=>addressed.has(q.id)),
+   unaddressedQuestions:questions.rows.filter(q=>!addressed.has(q.id)),
+   attachments:attachments.rows.map(x=>({...x,publicPath:"/api/documents/"+x.id+"/download"})),
+   endorsementHistory:history.rows,
+   description:agreementRecordSentence({...status,originator:context.originator_name,contender:context.contender_name})
+    +" The platform does not certify it as objectively best."},
   originals:videos.rows.map(v=>({...v,publicPath:"/api/media/"+v.media_asset_id+"/play"})),
   supportingDocuments:documents.rows.map(x=>({...x,publicPath:"/api/documents/"+x.id+"/download"})),
-  releasedSummaries:summaries.rows.map(x=>({...x,publicPath:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download"})),
+  releasedSummaries:summaries.rows.map(x=>{
+   const release=releases.rows.find(r=>r.object_id===x.id)?.payload||{};
+   const withdrawn=withdrawals.rows.filter(w=>w.artifact_id===x.id);
+   return {...x,publicPath:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download",
+    agreementScopeAtRelease:release.policyScope||null,
+    label:release.policyScope==="partial"?"Summary of a PARTIAL policy agreement — the debate is not resolved":null,
+    futureUseNotices:withdrawn.map(w=>futureUseNotice(w.owner_name,w.revoked_at))};
+  }),
   notices:[
+    ...(policy.scope==="partial"?["This is a PARTIAL agreement only. The remaining disagreements and unaddressed questions listed here stay open; the debate is not resolved."]:[]),
+    ...(policy.currently_joint?[]:["Support for this version was withdrawn; it is not a current joint agreement. The original acceptances remain part of the public history."]),
     "Published original videos are preserved unedited and remain accessible independently of qualifying status.",
     "A complete unedited multi-candidate record is accessible through the debate public path.",
     "No condensed video is represented as released unless the exact output was jointly approved.",
@@ -54,11 +90,31 @@ export function pressKitText(k:PressKit,baseURL:string){
   "Office: "+k.debate.office+" | Election: "+k.debate.election,
   "Participants: "+k.branch.originator+" / "+k.branch.contender,
   "Public full record: "+u(k.debate.publicPath),
-  "Agreement: both participants approved the exact policy below.",
+  "Status: "+k.agreement.label,
+  k.agreement.description,
   "Proposed by: "+k.agreement.proposedBy,
   "Policy version SHA-256: "+k.agreement.sha256,
+  "Scope: "+(k.agreement.scope==="partial"?"PARTIAL — does not resolve the debate":"full"),
   "",
-  "FULL AGREED POLICY TEXT",
+  "WHAT CHANGED FROM BOTH PRIOR POSITIONS",
+  k.agreement.changesSummary||"(not stated)",
+  "",
+  "ADDRESSED QUESTIONS ("+k.agreement.addressedQuestions.length+")",
+  ...k.agreement.addressedQuestions.map(q=>"- "+q.question_text+" (asked by "+q.asked_by+")"),
+  "",
+  "QUESTIONS NOT ADDRESSED BY THIS VERSION ("+k.agreement.unaddressedQuestions.length+")",
+  ...k.agreement.unaddressedQuestions.map(q=>"- "+q.question_text+" (asked by "+q.asked_by+")"),
+  "",
+  "REMAINING DISAGREEMENTS",
+  k.agreement.remainingDisagreements||"(none stated)",
+  "",
+  "POLICY ATTACHMENTS ("+k.agreement.attachments.length+")",
+  ...k.agreement.attachments.map(d=>d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath)),
+  "",
+  "ENDORSEMENT HISTORY",
+  ...k.agreement.endorsementHistory.map(e=>new Date(e.occurred_at).toISOString()+" | "+e.candidate_name+" | "+e.action),
+  "",
+  k.agreement.scope==="partial"?"FULL TEXT OF THE PARTIAL AGREEMENT":"FULL AGREED POLICY TEXT",
   "-----------------------",
   k.agreement.body,
   "",
@@ -68,7 +124,10 @@ export function pressKitText(k:PressKit,baseURL:string){
  intro.push("","SUPPORTING MATERIALS ("+k.supportingDocuments.length+")");
  for(const d of k.supportingDocuments)intro.push(d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath));
  intro.push("","APPROVED SHORT VIDEOS ("+k.releasedSummaries.length+")");
- for(const v of k.releasedSummaries)intro.push("SHA-256 "+v.output_sha256+" | "+u(v.publicPath));
+ for(const v of k.releasedSummaries){
+  intro.push((v.label?v.label+" | ":"")+"SHA-256 "+v.output_sha256+" | "+u(v.publicPath));
+  for(const note of v.futureUseNotices)intro.push("  Note: "+note);
+ }
  intro.push("","PRESERVATION AND ATTRIBUTION NOTES",...k.notices);
  return intro.join("\n")+"\n";
 }
