@@ -15,7 +15,7 @@ export type PrivateDraft={
 };
 export async function privateOwner(db:PoolClient,candidacyId:string,authSubject:string){
  const r=await db.query<{account_id:string;election_id:string}>(
-  "SELECT c.account_id,c.election_id FROM candidacies c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.identity_provider='neon-auth' AND a.external_subject=$2 AND c.verification_status='verified' FOR UPDATE OF c",
+  "SELECT c.account_id,c.election_id FROM candidacies c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.identity_provider='neon-auth' AND a.external_subject=$2 AND c.verification_status='verified' AND a.status='active' FOR UPDATE OF c",
   [candidacyId,authSubject]);
  if(!r.rowCount)throw new HttpError(403,"A verified candidate account is required.");
  return r.rows[0];

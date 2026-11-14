@@ -6,6 +6,7 @@ import {agreementRecordLabel,agreementRecordSentence,futureUseNotice,type Agreem
 type AgreementRow={policy_version_id:string;scope:AgreementScope;content_sha256:string;policy_body:string;changes_summary:string;
  remaining_disagreements:string;addressed_question_ids:string[];attachment_document_ids:string[];created_at:string;parent_version_id:string|null;
  author_name:string;first_joint_at:string;last_joint_at:string;currently_joint:boolean;withdrawn_at:string|null;withdrawn_by:string|null};
+type PressRestriction={caseId:string;category:string;publicNotice:string;openedAt:string;appealStatus:string};
 
 export async function pressKitForBranch(branchId:string){
  const header=await database().query<{
@@ -32,12 +33,12 @@ export async function pressKitForBranch(branchId:string){
  const addressed=new Set(policy.addressed_question_ids);
  const status={scope:policy.scope,currentlyJoint:policy.currently_joint,withdrawnAt:policy.withdrawn_at,withdrawnBy:policy.withdrawn_by};
  const [videos,documents,summaries]=await Promise.all([
-  database().query<{submission_id:string;kind:string;candidate_name:string;sha256:string;published_at:string;media_asset_id:string;duration_seconds:string}>(
-   "SELECT s.id AS submission_id,s.kind,c.public_name AS candidate_name,m.original_sha256 AS sha256,s.published_at,m.id AS media_asset_id,m.duration_seconds FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[context.debate_id,branchId]),
-  database().query<{id:string;submission_id:string;sha256:string;label:string;filename:string;mime_type:string}>(
-   "SELECT docs.id,docs.submission_id,docs.sha256,docs.label,docs.filename,docs.mime_type FROM submission_documents docs JOIN submissions s ON s.id=docs.submission_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY docs.published_at,docs.id",[context.debate_id,branchId]),
-  database().query<{id:string;output_sha256:string;source_manifest:unknown;duration_seconds:string|null}>(
-   "SELECT id,output_sha256,source_manifest,duration_seconds FROM derivative_artifacts WHERE branch_id=$1 AND status='released' AND rendered_storage_key IS NOT NULL ORDER BY rendered_at DESC,id",[branchId])
+  database().query<{submission_id:string;kind:string;candidate_name:string;sha256:string;published_at:string;media_asset_id:string;duration_seconds:string;restriction:PressRestriction|null}>(
+   "SELECT s.id AS submission_id,s.kind,c.public_name AS candidate_name,m.original_sha256 AS sha256,s.published_at,m.id AS media_asset_id,m.duration_seconds,pde_public_restriction('submission',s.id) AS restriction FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[context.debate_id,branchId]),
+  database().query<{id:string;submission_id:string;sha256:string;label:string;filename:string;mime_type:string;restriction:PressRestriction|null}>(
+   "SELECT docs.id,docs.submission_id,docs.sha256,CASE WHEN pde_active_restriction_case('document',docs.id) IS NULL THEN docs.label ELSE 'Restricted supporting material' END AS label,CASE WHEN pde_active_restriction_case('document',docs.id) IS NULL THEN docs.filename ELSE 'withheld' END AS filename,docs.mime_type,pde_public_restriction('document',docs.id) AS restriction FROM submission_documents docs JOIN submissions s ON s.id=docs.submission_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY docs.published_at,docs.id",[context.debate_id,branchId]),
+  database().query<{id:string;output_sha256:string;source_manifest:unknown;duration_seconds:string|null;restriction:PressRestriction|null}>(
+   "SELECT id,output_sha256,CASE WHEN pde_active_restriction_case('derivative',id) IS NULL THEN source_manifest ELSE jsonb_build_object('withheld',true) END AS source_manifest,duration_seconds,pde_public_restriction('derivative',id) AS restriction FROM derivative_artifacts WHERE branch_id=$1 AND status='released' AND rendered_storage_key IS NOT NULL ORDER BY rendered_at DESC,id",[branchId])
  ]);
  return {
   schemaVersion:"1.1.0" as const,
@@ -61,12 +62,12 @@ export async function pressKitForBranch(branchId:string){
    endorsementHistory:history.rows,
    description:agreementRecordSentence({...status,originator:context.originator_name,contender:context.contender_name})
     +" The platform does not certify it as objectively best."},
-  originals:videos.rows.map(v=>({...v,publicPath:"/api/media/"+v.media_asset_id+"/play"})),
-  supportingDocuments:documents.rows.map(x=>({...x,publicPath:"/api/documents/"+x.id+"/download"})),
+  originals:videos.rows.map(v=>({...v,publicPath:v.restriction?null:"/api/media/"+v.media_asset_id+"/play"})),
+  supportingDocuments:documents.rows.map(x=>({...x,publicPath:x.restriction?null:"/api/documents/"+x.id+"/download"})),
   releasedSummaries:summaries.rows.map(x=>{
    const release=releases.rows.find(r=>r.object_id===x.id)?.payload||{};
    const withdrawn=withdrawals.rows.filter(w=>w.artifact_id===x.id);
-   return {...x,publicPath:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download",
+   return {...x,publicPath:x.restriction?null:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download",
     agreementScopeAtRelease:release.policyScope||null,
     label:release.policyScope==="partial"?"Summary of a PARTIAL policy agreement — the debate is not resolved":null,
     futureUseNotices:withdrawn.map(w=>futureUseNotice(w.owner_name,w.revoked_at))};
@@ -77,13 +78,14 @@ export async function pressKitForBranch(branchId:string){
     "Published original videos are preserved unedited and remain accessible independently of qualifying status.",
     "A complete unedited multi-candidate record is accessible through the debate public path.",
     "No condensed video is represented as released unless the exact output was jointly approved.",
-    "The words of participating candidates are their own; these sources are not independent fact-checking."
+    "The words of participating candidates are their own; these sources are not independent fact-checking.",
+    "An item under an exceptional platform restriction is listed with its public notice; its bytes are withheld until the restriction is lifted."
   ]
  };
 }
 export type PressKit=Awaited<ReturnType<typeof pressKitForBranch>>;
 export function pressKitText(k:PressKit,baseURL:string){
- const u=(path:string)=>new URL(path,baseURL).toString();
+ const u=(path:string|null,r?:PressRestriction|null)=>path&&!r?new URL(path,baseURL).toString():"RESTRICTED ("+(r?.category||"restricted")+"): "+(r?.publicNotice||"withheld");
  const intro=[
   "PUBLIC DEBATE ENGINE — PUBLIC PRESS PACKAGE",
   "Debate: "+k.debate.title,
@@ -120,12 +122,12 @@ export function pressKitText(k:PressKit,baseURL:string){
   "",
   "UNEDITED SOURCE VIDEOS ("+k.originals.length+")"
  ];
- for(const v of k.originals)intro.push(v.candidate_name+" | "+v.kind+" | SHA-256 "+v.sha256+" | "+u(v.publicPath));
+ for(const v of k.originals)intro.push(v.candidate_name+" | "+v.kind+" | SHA-256 "+v.sha256+" | "+u(v.publicPath,v.restriction));
  intro.push("","SUPPORTING MATERIALS ("+k.supportingDocuments.length+")");
- for(const d of k.supportingDocuments)intro.push(d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath));
+ for(const d of k.supportingDocuments)intro.push(d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath,d.restriction));
  intro.push("","APPROVED SHORT VIDEOS ("+k.releasedSummaries.length+")");
  for(const v of k.releasedSummaries){
-  intro.push((v.label?v.label+" | ":"")+"SHA-256 "+v.output_sha256+" | "+u(v.publicPath));
+  intro.push((v.label?v.label+" | ":"")+"SHA-256 "+v.output_sha256+" | "+u(v.publicPath,v.restriction));
   for(const note of v.futureUseNotices)intro.push("  Note: "+note);
  }
  intro.push("","PRESERVATION AND ATTRIBUTION NOTES",...k.notices);

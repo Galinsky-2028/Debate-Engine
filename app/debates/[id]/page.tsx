@@ -8,6 +8,7 @@ import QualifyingSequence from "./qualifying-sequence";
 import CorrectionTools from "./correction-tools";
 import BranchRules from "./branch-rules";
 import ObligationLedger from "./obligation-ledger";
+import RestrictionHistory from "./restriction-history";
 import { publicDocuments } from "../../../lib/server/documents";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -52,6 +53,7 @@ export default async function DebateDetail({params}:{params:Promise<{id:string}>
    <ObligationLedger obligations={data.obligations} extensions={data.outageAdjustments} branches={branches} names={Object.fromEntries([[d.originator_candidacy_id,d.originator_name],...branches.map(b=>[b.responder_candidacy_id,b.contender_name])])}/>
    <PolicyWorkspace branches={branches}/>
    <BranchRules branches={branches} originatorId={d.originator_candidacy_id}/>
+   <RestrictionHistory debateId={id}/>
    <Link href="/debates" className="inline-arrow">← All debates</Link>
  </div>;
 }

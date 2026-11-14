@@ -6,7 +6,7 @@ import {FUTURE_USE_WITHDRAWALS_SQL} from "./policy-agreement-sql";
 type Artifact={id:string;status:string;output_sha256:string;manifest_sha256:string;
  source_manifest:{clips:Array<{mediaAssetId:string;startSeconds:number;endSeconds:number}>;
   outputKind:string;releaseTitle:string;captions:string[]};
- rendered_at:string|null;duration_seconds:string|null;has_file:boolean;created_at:string};
+ rendered_at:string|null;duration_seconds:string|null;has_file:boolean;created_at:string;restriction:Record<string,unknown>|null};
 export async function branchArtifactDirectory(branchId:string){
  const branch=await database().query<{id:string;debate_id:string;originator_candidacy_id:string;responder_candidacy_id:string}>(
  "SELECT b.id,b.debate_id,d.originator_candidacy_id,b.responder_candidacy_id FROM debate_branches b JOIN debates d ON d.id=b.debate_id WHERE b.id=$1 AND d.status='published'",[branchId]);
@@ -20,7 +20,7 @@ export async function branchArtifactDirectory(branchId:string){
   participantId=result.rows[0]?.id||null;
  }
  const artifacts=await database().query<Artifact>(
-  "SELECT a.id,a.status,a.output_sha256,a.manifest_sha256,a.source_manifest,a.created_at,a.rendered_at,a.duration_seconds,(a.rendered_storage_key IS NOT NULL) AS has_file FROM derivative_artifacts a WHERE a.branch_id=$1 AND ($2::boolean OR a.status='released') ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
+  "SELECT a.id,a.status,a.output_sha256,a.manifest_sha256,CASE WHEN a.status='released' AND pde_active_restriction_case('derivative',a.id) IS NOT NULL THEN jsonb_build_object('clips','[]'::jsonb,'outputKind',a.source_manifest->'outputKind','releaseTitle','Restricted summary','captions','[]'::jsonb,'withheld',true) ELSE a.source_manifest END AS source_manifest,CASE WHEN a.status='released' THEN pde_public_restriction('derivative',a.id) END AS restriction,a.created_at,a.rendered_at,a.duration_seconds,(a.rendered_storage_key IS NOT NULL) AS has_file FROM derivative_artifacts a WHERE a.branch_id=$1 AND ($2::boolean OR a.status='released') ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
   [branchId,Boolean(participantId)]
  );
  type Grant={artifact_id:string;permission_id:string;media_asset_id:string;candidate_id:string;scope:unknown;granted_at:string;revoked_at:string|null};

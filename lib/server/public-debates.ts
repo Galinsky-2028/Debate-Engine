@@ -2,6 +2,8 @@ import "server-only";
 import { database } from "./db";
 import {decodeDebateCursor,encodeDebateCursor} from "../../packages/domain/pagination";
 import type {DebateFilters} from "../../packages/domain/discovery";
+import {PUBLIC_DEBATE_SUBMISSIONS_SQL} from "../../packages/domain/restriction-queries";
+// Restricted rows stay listed; written_content is null and `restriction` carries the public notice.
 
 export type PublicDebateSummary={
  id:string;title:string;proposition:string;published_at:Date|string;originator:string;
@@ -27,6 +29,7 @@ export async function listPublicDebatesPage(filters:DebateFilters={},requestedLi
       OR position(lower($3::text) in lower(concat_ws(' ',d.title,d.proposition,c.public_name)))>0
       OR EXISTS (SELECT 1 FROM submissions s WHERE s.debate_id=d.id
         AND s.published_at IS NOT NULL AND s.modality='writing'
+        AND pde_active_restriction_case('submission',s.id) IS NULL
         AND position(lower($3::text) in lower(s.written_content))>0))
     AND ($4::timestamptz IS NULL OR (d.published_at,d.id)<($4::timestamptz,$5::uuid))
    ORDER BY d.published_at DESC,d.id DESC LIMIT $6`,
@@ -52,7 +55,7 @@ export async function loadPublicDebate(debateId:string){
   "SELECT d.*,c.public_name AS originator_name,o.title AS office_name,e.label AS election_label FROM debates d JOIN candidacies c ON c.id=d.originator_candidacy_id JOIN election_cycles e ON e.id=d.election_id JOIN offices o ON o.id=e.office_id WHERE d.id=$1 AND d.status='published'",[debateId]);
  if(!head.rows.length)return null;
  const [submissions,questions,answers,assessments,objections,branches,agreements,obligations,corrections,sequenceManifests,outageAdjustments]=await Promise.all([
-  database().query("SELECT s.id,s.debate_id,s.branch_id,s.candidacy_id,s.parent_submission_id,s.kind,s.rules_version,s.created_at,s.published_at,s.format_issues,s.modality,s.written_content,c.public_name AS candidate_name,m.id AS media_asset_id,m.duration_seconds FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id LEFT JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[debateId]),
+  database().query(PUBLIC_DEBATE_SUBMISSIONS_SQL,[debateId]),
   database().query("SELECT q.id,q.submission_id,q.question_text,q.ordinal,q.video_timestamp_seconds,q.written_anchor,q.asked_by_candidacy_id FROM questions q JOIN submissions s ON s.id=q.submission_id WHERE s.debate_id=$1 AND s.published_at IS NOT NULL ORDER BY s.published_at,q.ordinal",[debateId]),
   database().query("SELECT a.id,a.submission_id,a.question_id,a.video_timestamp_seconds,a.written_anchor,a.explanation FROM answers a JOIN submissions s ON s.id=a.submission_id WHERE s.debate_id=$1 AND s.published_at IS NOT NULL",[debateId]),
   database().query("SELECT a.id,a.question_id,a.answer_submission_id,a.reviewer_candidacy_id,a.decision,a.reasoning,a.supersedes_assessment_id,a.created_at,a.event_order FROM assessments a JOIN submissions s ON s.id=a.answer_submission_id WHERE s.debate_id=$1 ORDER BY a.event_order NULLS FIRST,a.created_at,a.id",[debateId]),
