@@ -39,8 +39,8 @@ export async function uploadSource(input:{submissionId:string;authSubject:string
  });
 }
 export async function publicDocuments(debateId:string){
- const q=await database().query<{id:string;submission_id:string;label:string;filename:string;sha256:string;mime_type:string;published_at:string}>(
-  "SELECT doc.id,doc.submission_id,doc.label,doc.filename,doc.sha256,doc.mime_type,doc.published_at FROM submission_documents doc JOIN submissions s ON s.id=doc.submission_id JOIN debates d ON d.id=s.debate_id WHERE d.id=$1 AND s.published_at IS NOT NULL AND d.status='published' ORDER BY doc.published_at,doc.id",[debateId]);
+ const q=await database().query<{id:string;submission_id:string;label:string;filename:string;sha256:string;mime_type:string;published_at:string;restriction:Record<string,unknown>|null}>(
+  "SELECT doc.id,doc.submission_id,CASE WHEN pde_active_restriction_case('document',doc.id) IS NULL THEN doc.label ELSE 'Restricted supporting material' END AS label,CASE WHEN pde_active_restriction_case('document',doc.id) IS NULL THEN doc.filename ELSE 'withheld' END AS filename,doc.sha256,doc.mime_type,doc.published_at,pde_public_restriction('document',doc.id) AS restriction FROM submission_documents doc JOIN submissions s ON s.id=doc.submission_id JOIN debates d ON d.id=s.debate_id WHERE d.id=$1 AND s.published_at IS NOT NULL AND d.status='published' ORDER BY doc.published_at,doc.id",[debateId]);
  return q.rows;
 }
 export async function signedDocumentUrl(documentId:string){

@@ -51,7 +51,15 @@ export async function requireIdentity(verified = false) {
   const user = await getAuthenticatedUser();
   if (!user) throw new HttpError(401,"Sign in is required.");
   if (verified && !user.emailVerified) throw new HttpError(403,"Verify your email before continuing.");
+  await refuseInactiveAccount(user.id);
   return user;
+}
+/** A closed (or suspended) account keeps its public attribution but can no longer act. */
+export async function refuseInactiveAccount(subject: string) {
+  const q = await database().query<{status:string}>(
+    "SELECT status FROM accounts WHERE identity_provider='neon-auth' AND external_subject=$1",[subject]);
+  if (q.rows[0] && q.rows[0].status !== "active")
+    throw new HttpError(403,"This account is closed or suspended and cannot make changes.");
 }
 export async function requireAdmin() {
   const user = await requireIdentity(true);
@@ -60,8 +68,9 @@ export async function requireAdmin() {
 }
 /** The Neon auth subject is authoritative; an email address is never an admin key. */
 export async function syncAccount(user: {id:string;name:string}) {
-  const q=await database().query<{id:string}>(
-    "INSERT INTO accounts(identity_provider, external_subject, display_name) VALUES('neon-auth',$1,$2) ON CONFLICT(identity_provider,external_subject) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id",
+  const q=await database().query<{id:string;status:string}>(
+    "INSERT INTO accounts(identity_provider, external_subject, display_name) VALUES('neon-auth',$1,$2) ON CONFLICT(identity_provider,external_subject) DO UPDATE SET display_name=CASE WHEN accounts.status='active' THEN EXCLUDED.display_name ELSE accounts.display_name END RETURNING id,status",
     [user.id,user.name||"Registered user"]);
+  if (q.rows[0].status !== "active") throw new HttpError(403,"This account is closed or suspended and cannot make changes.");
   return q.rows[0].id;
 }

@@ -2,12 +2,14 @@ import {NextRequest,NextResponse} from "next/server";
 import {uuid,requireIdentity,requireSameOrigin,parseJson,record,field,jsonError,HttpError} from "../../../../../lib/server/http";
 import {transaction,database} from "../../../../../lib/server/db";
 import {normalizeCaptions} from "../../../../../packages/domain/captions";
+import {activeRestriction,restrictedResponse} from "../../../../../lib/server/restrictions";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function GET(_r:Request,{params}:{params:Promise<{id:string}>}){
  try{
   const id=uuid((await params).id,"media id");
   const r=await database().query<{caption_text:string}>("SELECT mc.caption_text FROM media_captions mc JOIN media_assets m ON m.id=mc.media_asset_id JOIN submissions s ON s.media_asset_id=m.id JOIN debates d ON d.id=s.debate_id WHERE mc.media_asset_id=$1 AND s.published_at IS NOT NULL AND d.status='published' AND mc.language_code='en' ORDER BY reviewed_by_human DESC, published_at DESC LIMIT 1",[id]);
   if(!r.rowCount)return new NextResponse("Caption file not found.",{status:404});
+  const restriction=await activeRestriction("media",id);if(restriction)return restrictedResponse(restriction);
   return new NextResponse(r.rows[0].caption_text,{headers:{"content-type":"text/vtt; charset=utf-8","cache-control":"public,max-age=120","x-content-type-options":"nosniff"}});
  }catch(e){return jsonError(e);}
 }

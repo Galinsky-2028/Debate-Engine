@@ -1,6 +1,7 @@
 import "server-only";
 import {database} from "./db";
 import {HttpError} from "./http";
+type PressRestriction={caseId:string;category:string;publicNotice:string;openedAt:string;appealStatus:string};
 
 export async function pressKitForBranch(branchId:string){
  const header=await database().query<{
@@ -16,12 +17,12 @@ export async function pressKitForBranch(branchId:string){
  if(!policies.rowCount)throw new HttpError(409,"This branch has no mutually accepted policy yet.");
  const policy=policies.rows[0];
  const [videos,documents,summaries]=await Promise.all([
-  database().query<{submission_id:string;kind:string;candidate_name:string;sha256:string;published_at:string;media_asset_id:string;duration_seconds:string}>(
-   "SELECT s.id AS submission_id,s.kind,c.public_name AS candidate_name,m.original_sha256 AS sha256,s.published_at,m.id AS media_asset_id,m.duration_seconds FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[context.debate_id,branchId]),
-  database().query<{id:string;submission_id:string;sha256:string;label:string;filename:string;mime_type:string}>(
-   "SELECT docs.id,docs.submission_id,docs.sha256,docs.label,docs.filename,docs.mime_type FROM submission_documents docs JOIN submissions s ON s.id=docs.submission_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY docs.published_at,docs.id",[context.debate_id,branchId]),
-  database().query<{id:string;output_sha256:string;source_manifest:unknown;duration_seconds:string|null}>(
-   "SELECT id,output_sha256,source_manifest,duration_seconds FROM derivative_artifacts WHERE branch_id=$1 AND status='released' AND rendered_storage_key IS NOT NULL ORDER BY rendered_at DESC,id",[branchId])
+  database().query<{submission_id:string;kind:string;candidate_name:string;sha256:string;published_at:string;media_asset_id:string;duration_seconds:string;restriction:PressRestriction|null}>(
+   "SELECT s.id AS submission_id,s.kind,c.public_name AS candidate_name,m.original_sha256 AS sha256,s.published_at,m.id AS media_asset_id,m.duration_seconds,pde_public_restriction('submission',s.id) AS restriction FROM submissions s JOIN candidacies c ON c.id=s.candidacy_id JOIN media_assets m ON m.id=s.media_asset_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY s.published_at,s.id",[context.debate_id,branchId]),
+  database().query<{id:string;submission_id:string;sha256:string;label:string;filename:string;mime_type:string;restriction:PressRestriction|null}>(
+   "SELECT docs.id,docs.submission_id,docs.sha256,CASE WHEN pde_active_restriction_case('document',docs.id) IS NULL THEN docs.label ELSE 'Restricted supporting material' END AS label,CASE WHEN pde_active_restriction_case('document',docs.id) IS NULL THEN docs.filename ELSE 'withheld' END AS filename,docs.mime_type,pde_public_restriction('document',docs.id) AS restriction FROM submission_documents docs JOIN submissions s ON s.id=docs.submission_id WHERE s.debate_id=$1 AND (s.branch_id=$2 OR s.kind='opening') AND s.published_at IS NOT NULL ORDER BY docs.published_at,docs.id",[context.debate_id,branchId]),
+  database().query<{id:string;output_sha256:string;source_manifest:unknown;duration_seconds:string|null;restriction:PressRestriction|null}>(
+   "SELECT id,output_sha256,CASE WHEN pde_active_restriction_case('derivative',id) IS NULL THEN source_manifest ELSE jsonb_build_object('withheld',true) END AS source_manifest,duration_seconds,pde_public_restriction('derivative',id) AS restriction FROM derivative_artifacts WHERE branch_id=$1 AND status='released' AND rendered_storage_key IS NOT NULL ORDER BY rendered_at DESC,id",[branchId])
  ]);
  return {
   schemaVersion:"1.0.0" as const,
@@ -34,20 +35,21 @@ export async function pressKitForBranch(branchId:string){
   agreement:{versionId:policy.policy_version_id,body:policy.policy_body,
    sha256:policy.content_sha256,proposedBy:policy.author_name,createdAt:policy.created_at,
    description:"Both debate participants explicitly accepted this exact policy version; the platform does not certify it as objectively best."},
-  originals:videos.rows.map(v=>({...v,publicPath:"/api/media/"+v.media_asset_id+"/play"})),
-  supportingDocuments:documents.rows.map(x=>({...x,publicPath:"/api/documents/"+x.id+"/download"})),
-  releasedSummaries:summaries.rows.map(x=>({...x,publicPath:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download"})),
+  originals:videos.rows.map(v=>({...v,publicPath:v.restriction?null:"/api/media/"+v.media_asset_id+"/play"})),
+  supportingDocuments:documents.rows.map(x=>({...x,publicPath:x.restriction?null:"/api/documents/"+x.id+"/download"})),
+  releasedSummaries:summaries.rows.map(x=>({...x,publicPath:x.restriction?null:"/api/branches/"+branchId+"/derivatives/"+x.id+"/download"})),
   notices:[
     "Published original videos are preserved unedited and remain accessible independently of qualifying status.",
     "A complete unedited multi-candidate record is accessible through the debate public path.",
     "No condensed video is represented as released unless the exact output was jointly approved.",
-    "The words of participating candidates are their own; these sources are not independent fact-checking."
+    "The words of participating candidates are their own; these sources are not independent fact-checking.",
+    "An item under an exceptional platform restriction is listed with its public notice; its bytes are withheld until the restriction is lifted."
   ]
  };
 }
 export type PressKit=Awaited<ReturnType<typeof pressKitForBranch>>;
 export function pressKitText(k:PressKit,baseURL:string){
- const u=(path:string)=>new URL(path,baseURL).toString();
+ const u=(path:string|null,r?:PressRestriction|null)=>path&&!r?new URL(path,baseURL).toString():"RESTRICTED ("+(r?.category||"restricted")+"): "+(r?.publicNotice||"withheld");
  const intro=[
   "PUBLIC DEBATE ENGINE — PUBLIC PRESS PACKAGE",
   "Debate: "+k.debate.title,
@@ -64,11 +66,11 @@ export function pressKitText(k:PressKit,baseURL:string){
   "",
   "UNEDITED SOURCE VIDEOS ("+k.originals.length+")"
  ];
- for(const v of k.originals)intro.push(v.candidate_name+" | "+v.kind+" | SHA-256 "+v.sha256+" | "+u(v.publicPath));
+ for(const v of k.originals)intro.push(v.candidate_name+" | "+v.kind+" | SHA-256 "+v.sha256+" | "+u(v.publicPath,v.restriction));
  intro.push("","SUPPORTING MATERIALS ("+k.supportingDocuments.length+")");
- for(const d of k.supportingDocuments)intro.push(d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath));
+ for(const d of k.supportingDocuments)intro.push(d.label+" | "+d.filename+" | SHA-256 "+d.sha256+" | "+u(d.publicPath,d.restriction));
  intro.push("","APPROVED SHORT VIDEOS ("+k.releasedSummaries.length+")");
- for(const v of k.releasedSummaries)intro.push("SHA-256 "+v.output_sha256+" | "+u(v.publicPath));
+ for(const v of k.releasedSummaries)intro.push("SHA-256 "+v.output_sha256+" | "+u(v.publicPath,v.restriction));
  intro.push("","PRESERVATION AND ATTRIBUTION NOTES",...k.notices);
  return intro.join("\n")+"\n";
 }

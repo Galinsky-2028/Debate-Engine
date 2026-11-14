@@ -6,6 +6,7 @@ import PolicyWorkspace from "./policy-workspace";
 import SupportingDocuments from "./supporting-documents";
 import QualifyingSequence from "./qualifying-sequence";
 import CorrectionTools from "./correction-tools";
+import RestrictionHistory from "./restriction-history";
 import { publicDocuments } from "../../../lib/server/documents";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -48,6 +49,7 @@ export default async function DebateDetail({params}:{params:Promise<{id:string}>
    </section>
    <section className="source-list"><h2>Published supporting materials</h2>{documents.length===0?<p>No supporting files published yet.</p>:<ul>{documents.map(x=><li key={x.id}><a href={"/api/documents/"+x.id+"/download"}>{x.label} — {x.filename} ↗</a> <small>SHA-256 {x.sha256}</small></li>)}</ul>}</section><SupportingDocuments submissions={submissions}/>
    <PolicyWorkspace branches={branches}/>
+   <RestrictionHistory debateId={id}/>
    <Link href="/debates" className="inline-arrow">← All debates</Link>
  </div>;
 }
