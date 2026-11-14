@@ -1,13 +1,9 @@
-name: Scheduled operations
-# Free hosting has no always-on worker. Every 3 hours this workflow proves its identity to the app with a
-# short-lived GitHub OIDC token (no stored secret) and runs one bounded, idempotent batch of deadline jobs and
-# outbox deliveries. The app accepts only this workflow file, on main, in this repository.
+name: Run pending operations (manual)
+# Runs ONLY when started by hand. Proves its identity to the app with a short-lived GitHub OIDC token (no stored
+# secret) and runs one bounded, idempotent batch of deadline jobs and outbox deliveries. The app accepts only this
+# workflow file, on main, in this repository.
 on:
-  schedule:
-    # Every 3 hours, not more often: a free Render service sleeps after 15 idle minutes, and all free services in the
-    # workspace share 750 instance-hours a month. Frequent calls would keep this service awake around the clock and
-    # starve the other services. Requests to the site also process due work inline.
-    - cron: "17 */3 * * *"
+  # Manual only (owner decision 2026-11-14): no schedule. Run from the Actions tab when wanted.
   workflow_dispatch:
 permissions:
   contents: read

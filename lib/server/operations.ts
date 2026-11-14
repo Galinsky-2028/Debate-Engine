@@ -32,11 +32,12 @@ export async function operationsSnapshot(){
    providerUnconfiguredCount:(await db.query<{n:number}>("SELECT count(*)::int AS n FROM outgoing_actions WHERE state='pending' AND last_error='provider_unconfigured'")).rows[0].n,
    deadLetters:dead.rows},
   scannerHeartbeatAgeSeconds:heartbeat.rows[0]?.age_seconds??null,
+  automaticProcessing:process.env.PDE_AUTOMATIC_PROCESSING==="on",
   scheduledRunner:{configured:true,lastRunAt:scheduled.rows[0]?.last_run_at??null,runsLastHour:scheduled.rows[0]?.runs_last_hour??0},
   storage:{usedBytes:storage.used,budgetBytes:storage.limit,remainingBytes:storage.remaining,newUploadsAllowed:storage.allowed},
   rendering:{usedSecondsToday:render.used,budgetSecondsPerDay:render.limit,optionalRendersAllowed:render.allowed},
   destinations:destinations.rows[0],
   emailProviderConfigured:Boolean(emailProviderConfig(process.env)),
-  workerNote:"No always-on worker is presumed. Deadline jobs and deliveries run inline after requests, from the scheduled GitHub workflow (every 3 hours, authenticated by GitHub OIDC), via `npm run worker:outbox` / `npm run worker:deadlines`, or with Run pending jobs now."
+  workerNote:"Automatic processing is off by default (PDE_AUTOMATIC_PROCESSING unset): nothing runs on a schedule or after requests. Queued deadline jobs and deliveries wait until an administrator presses Run pending jobs now, starts the manual GitHub workflow, or runs `npm run worker:outbox` / `npm run worker:deadlines`."
  };
 }

@@ -35,18 +35,35 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 - Monitors are pull-only; no alerting channel is configured.
 - No spend data from Render/Neon/storage providers is read; budgets are operator-set caps.
 
-## Scheduled runs on free hosting
+## Manual processing (owner decision, 2026-11-14)
 
-The free Render web service has no always-on worker, so `.github/workflows/scheduled-operations.yml` calls
-`POST /api/operations/scheduled-run` every 3 hours from a free GitHub-hosted runner. The interval is deliberately coarse: a free Render service sleeps after 15 idle minutes and every free service in the workspace shares 750 instance-hours a month, so a 15-minute schedule would keep this service awake permanently (~744 hours) and starve the workspace's other free services. Every 3 hours costs roughly 60 instance-hours a month and a few Neon compute-hours; deadlines are hours or days long, and ordinary site requests also process due work inline. No secret is stored anywhere:
-the workflow requests a short-lived GitHub Actions OIDC token with audience `public-debate-engine-operations`, and the
-endpoint verifies its RS256 signature against GitHub's published keys and accepts it only when the issuer, audience,
-repository id `1413777544` (`Galinsky-2028/Debate-Engine`), `refs/heads/main`, the exact workflow file and a
-`schedule`/`workflow_dispatch` event all match (`packages/domain/github-oidc.ts`). A fork, another branch, a pull
-request or another workflow cannot trigger it. Optionally, another scheduler can use a 64+ character
-`OPERATIONS_RUN_TOKEN` environment variable instead (constant-time comparison).
+Nothing runs automatically. There is no scheduled job, no processing after requests, and no workflow that wakes
+the live service on its own. Queued deadline jobs (overdue events, due-soon and overdue notices) and outbox
+deliveries (notifications, invitations, distributions, email confirmations) wait in the database until an
+administrator processes them:
 
-Each call runs one bounded batch of deadline jobs and outbox deliveries — every step is idempotent, so overlapping or
-replayed calls are harmless — and records a `scheduled_operations_run` audit event. `/workspace/admin/operations`
-shows when the runner last ran and how many runs happened in the past hour. A sleeping free service is woken by the
-call and retried once. Tests: `tests/scheduled-token.test.ts`, `tests/github-oidc.test.ts`.
+- **Run pending jobs now** on `/workspace/admin/operations` (one bounded batch of deadline jobs and deliveries), or
+- the **Run pending operations (manual)** GitHub workflow (Actions tab → Run workflow), or
+- `npm run worker:deadlines` / `npm run worker:outbox` from a machine with `DATABASE_URL`.
+
+Everything stays idempotent, so running a batch twice is harmless. Deadlines are judged on server timestamps, not on
+when a batch happens to run: a late batch records an overdue event late but never changes whether a reply was on
+time. `/workspace/admin/operations` shows the backlog and the oldest pending item so you can see when a run is due.
+
+To turn automatic processing back on later: set `PDE_AUTOMATIC_PROCESSING=on` on the Render service (deliveries
+then run right after the request that queued them) and/or add a `schedule:` trigger back to
+`.github/workflows/scheduled-operations.yml`. Keep any schedule coarse (every few hours or less): a free Render
+service sleeps after 15 idle minutes and all free services in the workspace share 750 instance-hours a month.
+
+The other GitHub workflows follow the same rule: the PR-registry sync and the live smoke test are manual-only, and
+the dependency/CodeQL scan no longer has a weekly schedule (it still runs on pushes and pull requests as CI).
+
+### How the manual workflow authenticates
+
+The workflow requests a short-lived GitHub Actions OIDC token with audience `public-debate-engine-operations`, and
+`POST /api/operations/scheduled-run` verifies its RS256 signature against GitHub's published keys and accepts it
+only when the issuer, audience, repository id `1413777544` (`Galinsky-2028/Debate-Engine`), `refs/heads/main`, the
+exact workflow file and a `schedule`/`workflow_dispatch` event all match (`packages/domain/github-oidc.ts`). No
+secret is stored. Optionally, another caller can use a 64+ character `OPERATIONS_RUN_TOKEN` (constant-time
+comparison). Each call records a `scheduled_operations_run` audit event. Tests: `tests/github-oidc.test.ts`,
+`tests/scheduled-token.test.ts`.

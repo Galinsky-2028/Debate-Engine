@@ -1,10 +1,7 @@
 name: Update PR Evidence Registry
 on:
-  pull_request:
-    types: [closed]
+  # Manual only (owner decision 2026-11-14): no schedule and no automatic commit after a PR closes.
   workflow_dispatch:
-  schedule:
-    - cron: "17 */6 * * *"
 permissions:
   contents: write
 jobs:
