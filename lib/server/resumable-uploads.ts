@@ -10,6 +10,7 @@ import {HttpError} from "./http";
 import {examineVideo} from "./video";
 import {examineAudio} from "./audio";
 import {scanOriginalBeforeValidation,requireScannerPreflight} from "./malware";
+import {requireStorageBudget} from "./budget";
 import {MEDIA_PART_BYTES,partCount,expectedPartSize,completionParts} from "../../packages/domain/upload-parts";
 
 type Modality="video"|"audio";
@@ -48,6 +49,7 @@ export async function createMediaSession(input:{
   [input.candidacyId,input.authSubject]);
  if(!owner.rowCount)throw new HttpError(403,"Only a verified candidate may upload their original.");
  if(input.preparationMode==='hosted'&&owner.rows[0].processing_tier!=='paid')throw new HttpError(403,'Hosted preparation requires an activated paid processing entitlement.');
+ await requireStorageBudget(input.sizeBytes);
  await requireScannerPreflight();
  const id=randomUUID(),mediaId=randomUUID();
  const key="originals/"+input.candidacyId+"/"+mediaId+"/source";

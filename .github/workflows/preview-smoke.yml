@@ -1,4 +1,4 @@
-name: Public Preview Smoke
+name: Live deployment smoke
 on:
   workflow_dispatch:
   push:
@@ -6,15 +6,16 @@ on:
 permissions:
   contents: read
 jobs:
-  public-preview:
+  live-deployment:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      PDE_PREVIEW_URL: https://public-debate-engine-preview.onrender.com
+      # Render deploys from main are started manually, so a push run checks the release that is live at that moment.
+      PDE_PREVIEW_URL: https://public-debate-engine.onrender.com
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify live public preview and deny unauthorized mutations
+      - name: Read-only check of the live deployment; unauthorized mutations must be refused
         run: node scripts/smoke-preview.mjs

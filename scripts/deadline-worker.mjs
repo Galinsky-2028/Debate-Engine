@@ -1,6 +1,7 @@
 import pg from "pg";
 import {resolve} from "node:path";
 import {pathToFileURL} from "node:url";
+import {enqueueObligationNotifications,nextDeadlineCheck} from "../packages/delivery/outbox-store.ts";
 
 const {Pool} = pg;
 const leaseSeconds = 300;
@@ -42,7 +43,7 @@ async function processOne(pool) {
     if (typeof obligationId !== "string") throw new Error("Deadline job is missing obligationId.");
 
     const obligation = await db.query(`
-      SELECT ro.id,ro.debate_id,ro.branch_id,ro.obligated_candidacy_id,ro.obligation_type,
+      SELECT ro.id,ro.debate_id,ro.branch_id,ro.obligated_candidacy_id,ro.obligation_type,ro.opened_at,
         ro.received_at,ro.due_at + COALESCE((
           SELECT sum(oa.seconds) FROM obligation_outage_adjustments oa WHERE oa.obligation_id=ro.id
         ),0) * interval '1 second' AS effective_due_at,
@@ -55,20 +56,27 @@ async function processOne(pool) {
     if (!current.effective_due_at) throw new Error("Deadline obligation has no effective due time.");
 
     if (!current.received_at && current.effective_due_at > current.checked_at) {
+      // Due-soon notices (24 h before, windows over 48 h) are queued idempotently in the outbox; nothing is sent here.
+      const next = nextDeadlineCheck(current.opened_at,current.effective_due_at,current.checked_at);
+      if (next.phase === "due_soon") await enqueueObligationNotifications(db,{obligationId:current.id,phase:"due_soon"});
       await db.query("UPDATE durable_jobs SET state='queued',available_at=$2,leased_until=NULL WHERE id=$1",
-        [job.id,current.effective_due_at]);
+        [job.id,next.nextAt]);
     } else {
       if (!current.received_at) {
         await db.query(`
           INSERT INTO publication_events(debate_id,branch_id,kind,object_id,payload)
           SELECT $1,$2,'obligation_overdue',$3,$4::jsonb
           WHERE NOT EXISTS (
+            -- One overdue event per effective due time: a duplicate or retried job never repeats it,
+            -- while a deadline missed again after a documented outage extension is recorded again.
             SELECT 1 FROM publication_events WHERE kind='obligation_overdue' AND object_id=$3
+              AND (payload->>'effectiveDueAt')::timestamptz=$5::timestamptz
           )`, [current.debate_id,current.branch_id,current.id,JSON.stringify({
             obligationType: current.obligation_type,
             obligatedCandidacyId: current.obligated_candidacy_id,
             effectiveDueAt: current.effective_due_at,
-          })]);
+          }),current.effective_due_at]);
+        await enqueueObligationNotifications(db,{obligationId:current.id,phase:"overdue"});
       }
       await db.query("UPDATE durable_jobs SET state='completed',finished_at=now(),leased_until=NULL WHERE id=$1",[job.id]);
     }
@@ -82,6 +90,13 @@ async function processOne(pool) {
     );
     throw error;
   } finally { db.release(); }
+}
+
+/** Process up to `limit` due deadline jobs on a caller-owned pool (used by the admin "run pending jobs" command). */
+export async function runDeadlineJobs(pool, limit = batchSize) {
+  let processed = 0;
+  while (processed < limit && await processOne(pool)) processed += 1;
+  return processed;
 }
 
 export async function runBatch(pool = database()) {

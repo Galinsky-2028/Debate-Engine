@@ -10,7 +10,9 @@ export function evaluateRelease({roadmap,evidence}){
   if(!REQUIRED_GATES.includes(gate.id)||seen.has(gate.id))throw Error("Unexpected or duplicated acceptance gate "+gate.id);
   seen.add(gate.id);
   const approved=gate.status==="accepted" && typeof gate.evidenceUrl==="string" && /^https:\/\/[\w.-]+\//.test(gate.evidenceUrl) && typeof gate.reviewer==="string" && gate.reviewer.trim().length>=3 && typeof gate.reviewedAt==="string" && !Number.isNaN(Date.parse(gate.reviewedAt));
-  if(!approved)reasons.push({gate:gate.id,status:gate.status||"missing",reason:"Requires accepted status, attributed review and linked dated evidence; external human review is tracked separately"});
+  if(!approved)reasons.push({gate:gate.id,status:gate.status||"missing",reason:gate.id==="securityReview"
+   ?"Requires an accepted AI-assisted or external security review with an attributed reviewer and linked, dated evidence"
+   :"Requires accepted status, attributed review and linked dated evidence"});
  }
  for(const id of REQUIRED_GATES)if(!seen.has(id))reasons.push({gate:id,status:"missing",reason:"No acceptance entry"});
  const roadmapFailures=REQUIRED_GATES.filter(id=>roadmap.operationalAcceptance?.[id]!=="accepted").map(gate=>({gate,status:roadmap.operationalAcceptance?.[gate]||"missing",reason:"Canonical roadmap has not recorded approval"}));

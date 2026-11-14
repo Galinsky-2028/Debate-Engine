@@ -2,6 +2,7 @@ import "server-only";
 import {transaction,database} from "./db";
 import {HttpError} from "./http";
 import {loadPrivateDraft} from "./private-drafts";
+import type {PoolClient} from "pg";
 
 /**
  * Withdraws improvement participation at any time without erasing the author's
@@ -20,22 +21,31 @@ export async function withdrawAssistantImprovement(draftId:string,subject:string
 export async function erasePrivateAssistantData(draftId:string,subject:string){
  return transaction(async db=>{
   const draft=await loadPrivateDraft(draftId,subject,true,db);
-  if(draft.privacy_erased_at)return {erased:true,alreadyErased:true,publishedOriginalPreserved:draft.status==="published"};
-  if(draft.status==="confirming")throw new HttpError(409,"Publication is being confirmed. Retry erasure after confirmation resolves.");
-  if(draft.status!=="published"){
-   // Unpublished work has no immutable public reference. Cascade removes its
-   // private assessment history and feedback.
-   const refs=await db.query("SELECT 1 FROM submissions WHERE origin_draft_id=$1",[draftId]);
-   if(refs.rowCount)throw new HttpError(409,"This draft has a public reference; deletion is not permitted.");
-   await db.query("DELETE FROM private_submission_drafts WHERE id=$1",[draftId]);
-   return {erased:true,alreadyErased:false,publishedOriginalPreserved:false};
-  }
-  // For published contributions preserve only the non-reversible integrity
-  // digest and the FK needed by the immutable public provenance record.
-  await db.query("DELETE FROM private_debate_assessments WHERE draft_id=$1",[draftId]);
-  await db.query("UPDATE private_submission_drafts SET payload=jsonb_build_object('privacyErased',true),transcript_text=NULL,provider_consent=false,improvement_consent=false,privacy_erased_at=now(),updated_at=now() WHERE id=$1",[draftId]);
-  return {erased:true,alreadyErased:false,publishedOriginalPreserved:true};
+  return erasePrivateDraftRecord(db,draft);
  });
+}
+
+/**
+ * Erasure core shared by per-draft erasure and account closure. Caller holds the
+ * draft row lock and has proven ownership.
+ */
+export async function erasePrivateDraftRecord(db:PoolClient,draft:{id:string;status:string;privacy_erased_at:Date|string|null}){
+ const draftId=draft.id;
+ if(draft.privacy_erased_at)return {erased:true,alreadyErased:true,publishedOriginalPreserved:draft.status==="published"};
+ if(draft.status==="confirming")throw new HttpError(409,"Publication is being confirmed. Retry erasure after confirmation resolves.");
+ if(draft.status!=="published"){
+  // Unpublished work has no immutable public reference. Cascade removes its
+  // private assessment history and feedback.
+  const refs=await db.query("SELECT 1 FROM submissions WHERE origin_draft_id=$1",[draftId]);
+  if(refs.rowCount)throw new HttpError(409,"This draft has a public reference; deletion is not permitted.");
+  await db.query("DELETE FROM private_submission_drafts WHERE id=$1",[draftId]);
+  return {erased:true,alreadyErased:false,publishedOriginalPreserved:false};
+ }
+ // For published contributions preserve only the non-reversible integrity
+ // digest and the FK needed by the immutable public provenance record.
+ await db.query("DELETE FROM private_debate_assessments WHERE draft_id=$1",[draftId]);
+ await db.query("UPDATE private_submission_drafts SET payload=jsonb_build_object('privacyErased',true),transcript_text=NULL,provider_consent=false,improvement_consent=false,privacy_erased_at=now(),updated_at=now() WHERE id=$1",[draftId]);
+ return {erased:true,alreadyErased:false,publishedOriginalPreserved:true};
 }
 
 /**

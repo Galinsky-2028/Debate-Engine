@@ -1,5 +1,9 @@
 # Public Debate Engine current development and handoff status
 
+## November 14 repository transfer
+
+The repository was transferred to [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine); GitHub redirects the old owner path. `registry/prs.json`, the CI and registry workflows, the E2EESA status files and the live-deployment smoke check now use that identity ([details](REPOSITORY_NAME_TRANSITION.md)). The web container applies pending migrations before it starts and `/api/health` reports the deployed commit ([deployment runbook](deployment-runbook.md)). The handoff documents required by section 20 of the plan are indexed in [agent-handoff.md](agent-handoff.md).
+
 ## November 9 deployment work
 
 The owner replaced the inaccessible old Render/Neon targets; current bindings are in `docs/INFRASTRUCTURE.md` and `AGENTS.md`. Browser preparation now runs locally on Mac/Windows/Linux for free accounts; the hosted option is guarded by a server-side paid entitlement with billing intentionally deferred. An independent trusted scanner remains required for both paths. A Docker-based, outbound-only operator-laptop worker supports free web hosting; the fully hosted ClamAV runtime remains in `Dockerfile.production`. Pair the operator from `/workspace/scanner`.
@@ -10,11 +14,11 @@ Release diagnostics now read canonical `registry/prs.json`, report missing opera
 
 The dated status below is historical and does not override current infrastructure bindings.
 
-**Reviewed:** October 15, 2026. **Product:** Public Debate Engine. **Current repository:** [`neophilism/Debate-Engine`](https://github.com/neophilism/Debate-Engine) (the approved administrative rename is still pending).
+**Reviewed:** October 15, 2026. **Product:** Public Debate Engine. **Repository at that date:** `neophilism/Debate-Engine`, since transferred to [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine) ([details](REPOSITORY_NAME_TRANSITION.md)).
 
 ## Canonical resources
 
-- Source: https://github.com/neophilism/Debate-Engine
+- Source: https://github.com/Galinsky-2028/Debate-Engine (formerly `neophilism/Debate-Engine`)
 - Neutral Render preview: https://public-debate-engine-preview.onrender.com
 - Render service: srv-db5j814s728c738161ig, workspace tea-db23jkks728c73av263g
 - Neon project: rapid-moon-08277391

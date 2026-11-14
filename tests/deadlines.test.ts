@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {invitedReplyOpenedAt, notificationDedupeKey, projectObligation} from "../packages/domain/deadlines.ts";
+import {invitedReplyOpenedAt, notificationDedupeKey, projectObligation, parseOutageExtension, deadlineJobKey} from "../packages/domain/deadlines.ts";
 
 test("server instants survive a daylight-saving boundary without changing elapsed time", () => {
   const result = projectObligation({
@@ -38,4 +38,17 @@ test("documented outage adjustments are additive and reject duplicate evidence",
   assert.equal(result.state,"fulfilled_on_time");
   assert.throws(()=>projectObligation({id:"duplicate",openedAt:"2026-10-10T10:00:00Z",dueAt:"2026-10-10T11:00:00Z",
     adjustments:[{id:"same",seconds:60},{id:"same",seconds:60}]},"2026-10-10T10:30:00Z"),/unique/);
+});
+
+test("outage extensions are bounded and need a substantive public reason", () => {
+  assert.deepEqual(parseOutageExtension({seconds: 3600, publicReason: "  Upload service outage from 14:00 to 15:00 UTC.  "}), {seconds: 3600, publicReason: "Upload service outage from 14:00 to 15:00 UTC."});
+  for (const seconds of [59, 2592001, 90.5, "x"]) assert.throws(() => parseOutageExtension({seconds, publicReason: "A documented platform outage occurred."}));
+  assert.throws(() => parseOutageExtension({seconds: 3600, publicReason: "too short"}));
+  assert.throws(() => parseOutageExtension({seconds: 3600, publicReason: "x".repeat(1001)}));
+});
+
+test("a new effective due time gets a new deadline job key", () => {
+  const before = deadlineJobKey("o1", "2026-11-10T12:00:00Z");
+  assert.equal(before, "obligation:o1:deadline:2026-11-10T12:00:00.000Z");
+  assert.notEqual(deadlineJobKey("o1", "2026-11-10T13:00:00Z"), before);
 });

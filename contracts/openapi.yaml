@@ -47,6 +47,100 @@ paths:
           description: All published material, attributed assessments, sources and events
         '404':
           description: No such published debate
+  /api/v1/debates/{id}/restrictions:
+    get:
+      operationId: getDebateRestrictionHistory
+      summary: Public history of exceptional platform restrictions in a debate
+      description: >-
+        Category, public notices, event types, timestamps and whether the deciding
+        administrator differed from the opener. Never account identifiers or the
+        private basis. A restricted item stays listed in the full record with a
+        `restriction` object and null `written_content`; its media, captions and
+        downloads return HTTP 451 with the public notice until the case is lifted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Restriction cases with their append-only public event history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, debateId, restrictions]
+                properties:
+                  schemaVersion: { type: string, const: '1.0.0' }
+                  debateId: { type: string, format: uuid }
+                  restrictions: { type: array, items: { $ref: '#/components/schemas/RestrictionCase' } }
+                  notice: { type: string }
+        '404':
+          description: No such published debate
+  /api/debates/{id}/sequence:
+    get:
+      operationId: getQualifyingSequences
+      summary: Qualifying sequence manifests per branch
+      description: >-
+        Every published, append-only manifest revision per branch (newest first) plus the current projection. A later assessment reversal never deletes an earlier published revision.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Qualifying sequence manifests per branch
+        '404':
+          description: Not a published debate or branch
+  /api/debates/{id}/invitations:
+    get:
+      operationId: getDebateInvitations
+      summary: Invitation delivery states for a debate
+      description: >-
+        Drafted, sent (with provider evidence) and response-due states. A candidate who was never sent an invitation is never reported as unresponsive.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invitation delivery states for a debate
+        '404':
+          description: Not a published debate or branch
+  /api/branches/{id}/rules:
+    get:
+      operationId: getBranchRuleVersions
+      summary: Branch rule versions and proposals
+      description: >-
+        Rule versions in force on one candidate-to-candidate branch and pending proposals. A proposal applies prospectively only after both participants accept the exact version.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Branch rule versions and proposals
+        '404':
+          description: Not a published debate or branch
+  /api/branches/{id}/policies:
+    get:
+      operationId: getBranchPolicyVersions
+      summary: Versioned policy proposals and current endorsements
+      description: >-
+        Immutable policy versions with scope (full or partial), addressed questions, remaining disagreements, attachment digests and current versus historical endorsements.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Versioned policy proposals and current endorsements
+        '404':
+          description: Not a published debate or branch
   /api/v1/branches/{id}/press-kit:
     get:
       operationId: getMutuallyAgreedPolicyEvidence
@@ -58,7 +152,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Exact policy and provenance manifest
+          description: Exact policy and provenance manifest, with scope (full or partial), current or withdrawn status and endorsement history
         '409':
           description: There is no jointly accepted policy yet
 components:
@@ -76,3 +170,24 @@ components:
         election_label: { type: string }
         contribution_count: { type: integer }
         contender_count: { type: integer }
+    RestrictionCase:
+      type: object
+      required: [caseId, targetKind, targetId, category, status, openedAt, events]
+      properties:
+        caseId: { type: string, format: uuid }
+        targetKind: { type: string, enum: [submission, document, derivative] }
+        targetId: { type: string, format: uuid }
+        category: { type: string, enum: [malware_or_security, unlawful_content, private_information, legal_order, impersonation] }
+        categoryLabel: { type: string }
+        status: { type: string, enum: [active, lifted] }
+        openedAt: { type: string, format: date-time }
+        events:
+          type: array
+          items:
+            type: object
+            required: [eventType, publicNotice, independentReview, occurredAt]
+            properties:
+              eventType: { type: string, enum: [opened, appealed, upheld, lifted] }
+              publicNotice: { type: string }
+              independentReview: { type: boolean }
+              occurredAt: { type: string, format: date-time }
