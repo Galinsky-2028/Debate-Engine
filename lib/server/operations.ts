@@ -32,11 +32,11 @@ export async function operationsSnapshot(){
    providerUnconfiguredCount:(await db.query<{n:number}>("SELECT count(*)::int AS n FROM outgoing_actions WHERE state='pending' AND last_error='provider_unconfigured'")).rows[0].n,
    deadLetters:dead.rows},
   scannerHeartbeatAgeSeconds:heartbeat.rows[0]?.age_seconds??null,
-  scheduledRunner:{configured:(process.env.OPERATIONS_RUN_TOKEN?.length??0)>=64,lastRunAt:scheduled.rows[0]?.last_run_at??null,runsLastHour:scheduled.rows[0]?.runs_last_hour??0},
+  scheduledRunner:{configured:true,lastRunAt:scheduled.rows[0]?.last_run_at??null,runsLastHour:scheduled.rows[0]?.runs_last_hour??0},
   storage:{usedBytes:storage.used,budgetBytes:storage.limit,remainingBytes:storage.remaining,newUploadsAllowed:storage.allowed},
   rendering:{usedSecondsToday:render.used,budgetSecondsPerDay:render.limit,optionalRendersAllowed:render.allowed},
   destinations:destinations.rows[0],
   emailProviderConfigured:Boolean(emailProviderConfig(process.env)),
-  workerNote:"No always-on worker is presumed. Deadline jobs and deliveries run inline after requests, from the scheduled GitHub workflow (every 15 minutes when OPERATIONS_RUN_TOKEN is configured), via `npm run worker:outbox` / `npm run worker:deadlines`, or with Run pending jobs now."
+  workerNote:"No always-on worker is presumed. Deadline jobs and deliveries run inline after requests, from the scheduled GitHub workflow (every 15 minutes, authenticated by GitHub OIDC), via `npm run worker:outbox` / `npm run worker:deadlines`, or with Run pending jobs now."
  };
 }

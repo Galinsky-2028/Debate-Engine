@@ -38,11 +38,15 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 ## Scheduled runs on free hosting
 
 The free Render web service has no always-on worker, so `.github/workflows/scheduled-operations.yml` calls
-`POST /api/operations/scheduled-run` every 15 minutes (free GitHub-hosted runner). The endpoint accepts only
-`Authorization: Bearer <OPERATIONS_RUN_TOKEN>` (64+ characters, compared in constant time, no cookies), runs one
-bounded batch of deadline jobs and outbox deliveries — every step is idempotent, so overlapping or repeated runs are
-harmless — and records a `scheduled_operations_run` audit event. `/workspace/admin/operations` shows whether the
-runner is configured, when it last ran and how many runs happened in the past hour. The same token is stored as the
-Render environment variable and the GitHub repository secret; rotating it means updating both. If the secret is
-absent the workflow exits without calling anything. A sleeping free service is woken by the call and retried once.
-Tests: `tests/scheduled-token.test.ts`.
+`POST /api/operations/scheduled-run` every 15 minutes from a free GitHub-hosted runner. No secret is stored anywhere:
+the workflow requests a short-lived GitHub Actions OIDC token with audience `public-debate-engine-operations`, and the
+endpoint verifies its RS256 signature against GitHub's published keys and accepts it only when the issuer, audience,
+repository id `1413777544` (`Galinsky-2028/Debate-Engine`), `refs/heads/main`, the exact workflow file and a
+`schedule`/`workflow_dispatch` event all match (`packages/domain/github-oidc.ts`). A fork, another branch, a pull
+request or another workflow cannot trigger it. Optionally, another scheduler can use a 64+ character
+`OPERATIONS_RUN_TOKEN` environment variable instead (constant-time comparison).
+
+Each call runs one bounded batch of deadline jobs and outbox deliveries — every step is idempotent, so overlapping or
+replayed calls are harmless — and records a `scheduled_operations_run` audit event. `/workspace/admin/operations`
+shows when the runner last ran and how many runs happened in the past hour. A sleeping free service is woken by the
+call and retried once. Tests: `tests/scheduled-token.test.ts`, `tests/github-oidc.test.ts`.
