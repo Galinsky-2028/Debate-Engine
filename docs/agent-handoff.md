@@ -34,7 +34,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 - No email provider (`EMAIL_API_URL`/`EMAIL_API_KEY`/`EMAIL_FROM`) and no webhook destinations are configured, so notices and invitations stay "Queued — not sent".
 - No always-on worker on free hosting: a platform administrator runs pending deadline and outbox jobs from `/workspace/admin/operations`; a scheduled worker can be added later with cost approval.
 - External human security review is deferred follow-up under the AGENTS.md policy; it is not a release blocker and must not be claimed.
-- Not implemented: obligations superseded by a recorded agreement; `distribute` grants (no route creates or consumes them); distribution re-checking later edit-permission revocations or restriction cases; playback encodes; a suspension workflow.
+- Not implemented: obligations superseded by a recorded agreement; `distribute` grants (no route creates or consumes them); playback encodes; a suspension workflow.
 - The unfinished requirement "When a candidate uploads a video…" (below).
 
 ## Next unblocked tasks

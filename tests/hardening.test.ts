@@ -39,3 +39,9 @@ test("only a ZIP with Word parts is accepted as DOCX",async()=>{
  assert.ok(names(docx).has("word/document.xml"));
  assert.ok(!names(other).has("word/document.xml"));
 });
+test("distributing a released summary re-checks future-use permission and active restrictions",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const src=readFileSync(new URL("../lib/server/distributions.ts",import.meta.url),"utf8");
+ assert.match(src,/ARTIFACT_GRANTS_CURRENT_SQL/);
+ assert.match(src,/restriction_cases WHERE target_kind='derivative'/);
+});
