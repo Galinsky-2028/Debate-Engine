@@ -5,7 +5,7 @@ type Row={state:string;n:number;oldest_seconds:number|null;job_type?:string;acti
 type Dead={id:string;action_type:string;attempts:number;max_attempts:number;last_error:string|null;dead_at:string|null;destination_kind:string|null};
 type Snapshot={generatedAt:string;jobs:{backlog:Row[];oldestPendingSeconds:number|null;recentFailures:Array<{id:string;job_type:string;attempt_count:number;last_error:string|null}>};
  outbox:{backlog:Row[];oldestPendingSeconds:number|null;failedCount:number;deadCount:number;providerUnconfiguredCount:number;deadLetters:Dead[]};
- scannerHeartbeatAgeSeconds:number|null;storage:{usedBytes:number;budgetBytes:number|null;remainingBytes:number|null;newUploadsAllowed:boolean};
+ scannerHeartbeatAgeSeconds:number|null;automaticProcessing?:boolean;scheduledRunner?:{configured:boolean;lastRunAt:string|null;runsLastHour:number};storage:{usedBytes:number;budgetBytes:number|null;remainingBytes:number|null;newUploadsAllowed:boolean};
  rendering:{usedSecondsToday:number;budgetSecondsPerDay:number|null;optionalRendersAllowed:boolean};destinations:{unverified:number;verified:number;disabled:number};emailProviderConfigured:boolean;workerNote:string};
 const age=(s:number|null)=>s===null?"none":s<120?s+" s":s<7200?Math.round(s/60)+" min":Math.round(s/3600)+" h";
 const bytes=(n:number|null)=>n===null?"no budget configured":(n/1024/1024/1024).toFixed(2)+" GiB";
@@ -21,6 +21,8 @@ export default function OperationsPage(){
   {data&&<>
    <section className="workspace-panel"><h2>Health</h2><ul>
     <li>Scanner heartbeat: {data.scannerHeartbeatAgeSeconds===null?"never seen":age(data.scannerHeartbeatAgeSeconds)+" ago"}</li>
+    <li>Automatic processing: {data.automaticProcessing?"on — deliveries run after requests":"off — nothing runs until you press Run pending jobs now"}</li>
+    <li>Manual workflow runs: {data.scheduledRunner?.lastRunAt?"last ran "+new Date(data.scheduledRunner.lastRunAt).toLocaleString():"never run"}</li>
     <li>Email provider: {data.emailProviderConfigured?"configured":"not configured — email stays queued, never reported sent"}</li>
     <li>Media storage: {bytes(data.storage.usedBytes)} used of {bytes(data.storage.budgetBytes)} · new uploads {data.storage.newUploadsAllowed?"allowed":"PAUSED (budget exhausted)"}</li>
     <li>Rendering today: {Math.round(data.rendering.usedSecondsToday)} s of {data.rendering.budgetSecondsPerDay===null?"no budget configured":data.rendering.budgetSecondsPerDay+" s"} · optional renders {data.rendering.optionalRendersAllowed?"allowed":"PAUSED (budget exhausted)"}</li>

@@ -11,6 +11,7 @@ Plan references: `docs/DEVELOPMENT_PLAN.md` §12, §13.1, §13.4 (signed webhook
 - **Outbox** (`outgoing_actions`, extended additively). New columns: `destination_id`, `owner_candidacy_id`, `debate_id`, `branch_id`, `subject_kind`, `subject_id`, `next_attempt_at`, `max_attempts`, `lease_token`, `lease_expires_at`, `last_error`, `accepted_at`, `delivered_at`, `dead_at`; states add `delivered` and `dead`. Existing rows stay valid. One row per destination; enqueue is idempotent on `UNIQUE(action_type,destination,dedupe_key)` where `destination='destination:<uuid>'`.
 - **Pure rules** in `packages/domain/outbox.ts`: backoff (30 s → 12 h), 8 attempts then dead letter, allowed transitions, honest labels, HMAC signing/verification, SSRF address rules, email/header sanitizing, neutral notification wording, due-soon timing.
 - **Shared processor** `packages/delivery/outbox-store.ts` (used by the web server, `scripts/outbox-worker.mjs` and `scripts/deadline-worker.mjs`): claim one row with `FOR UPDATE SKIP LOCKED` + 60 s lease, send, record the result only if the lease token still matches.
+- **When it runs:** only when an administrator starts it (owner decision 2026-11-14). Queued deliveries stay `pending` until **Run pending jobs now** on `/workspace/admin/operations`, the manual GitHub workflow, or `npm run worker:outbox`; set `PDE_AUTOMATIC_PROCESSING=on` to process right after the request again. See [OPERATIONS_AND_COST_CONTROLS.md](OPERATIONS_AND_COST_CONTROLS.md).
 
 ## Honest states
 

@@ -7,11 +7,16 @@ import {deliveryLabel, DELIVERY_LABEL_TEXT, type OutboxState} from "../../packag
 
 export {processOutbox, retryDeadLetter};
 
+/** Automatic processing is OFF unless PDE_AUTOMATIC_PROCESSING=on; otherwise work waits for "Run pending jobs now". */
+export function automaticProcessingEnabled() { return process.env.PDE_AUTOMATIC_PROCESSING === "on"; }
+
 /**
- * The free web service has no background worker: after a request enqueues delivery work, process a small bounded
- * batch once the response has been sent. Failures stay recorded in the outbox; they never fail the request.
+ * When automatic processing is enabled, process a small bounded batch after a request enqueues delivery work, once
+ * the response has been sent. Failures stay recorded in the outbox; they never fail the request. When disabled
+ * (the default), queued work stays pending until an administrator runs it manually.
  */
 export function scheduleOutboxRun(limit = 5) {
+  if (!automaticProcessingEnabled()) return;
   after(async () => {
     try { await processOutbox(database(), {limit}); }
     catch (error) { console.error("Inline outbox run failed", error instanceof Error ? error.name : "unknown"); }
