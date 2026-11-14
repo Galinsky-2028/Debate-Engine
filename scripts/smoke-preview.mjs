@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Public preview smoke test. Never changes the live data or sends a candidate invitation. */
+/** Read-only smoke test of the live deployment (PDE_PREVIEW_URL). Never changes live data or sends a candidate invitation. */
 import assert from "node:assert/strict";
 const base=process.env.PDE_PREVIEW_URL;
 if(!base?.startsWith("https://"))throw Error("Explicit HTTPS PDE_PREVIEW_URL is required.");
@@ -17,12 +17,17 @@ async function check(path,expected,{method="GET",origin,validate=()=>{}}={}){
    }
    last=Error("Expected "+expected+" at "+path+", got "+r.status+" : "+data.slice(0,200));
   }catch(e){last=e;}
-  // Free Render preview can restart or be deploying. Retry within a bounded window.
+  // A free Render instance can sleep, restart or be deploying. Retry within a bounded window.
   await sleep(15000);
  }
  throw last;
 }
-await check("/api/health",200);
+await check("/api/health",200,{validate:(_r,text)=>{
+ const j=JSON.parse(text);
+ assert.equal(j.status,"ok");
+ assert.equal(j.service,"public-debate-engine");
+ assert.match(j.version,/^(?:[0-9a-f]{7,40}|unknown)$/);
+}});
 await check("/api/ready",200,{validate:(_r,text)=>{
  const j=JSON.parse(text);
  assert.equal(j.status,"ready");
@@ -49,4 +54,4 @@ await check("/feed.xml",200,{validate:(r,text)=>{
 }});
 await check("/robots.txt",200);
 await check("/sitemap.xml",200);
-console.log("Public preview smoke checks passed.");
+console.log("Live deployment smoke checks passed.");

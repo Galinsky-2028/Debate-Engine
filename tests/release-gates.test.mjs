@@ -9,7 +9,7 @@ test("merging every PR cannot independently grant production acceptance",()=>{
  assert.equal(r.ready,false);assert.equal(r.planUnits,2);assert.ok(r.unaccepted.length>=7);
 });
 test("evidence and roadmap must both be accepted",()=>{
- const accepted=REQUIRED_GATES.map(id=>({id,status:"accepted",reviewer:"Security reviewer",reviewedAt:"2026-10-12T12:00:00Z",evidenceUrl:"https://github.com/neophilism/Debate-Engine/issues/1"}));
+ const accepted=REQUIRED_GATES.map(id=>({id,status:"accepted",reviewer:"Security reviewer",reviewedAt:"2026-10-12T12:00:00Z",evidenceUrl:"https://github.com/Galinsky-2028/Debate-Engine/issues/1"}));
  assert.equal(evaluateRelease({roadmap,evidence:{schemaVersion:1,gates:accepted}}).ready,false);
  assert.equal(evaluateRelease({roadmap:{...roadmap,operationalAcceptance:Object.fromEntries(REQUIRED_GATES.map(id=>[id,"accepted"]))},evidence:{schemaVersion:1,gates:accepted}}).ready,true);
 });
@@ -31,4 +31,18 @@ test("omitting canonical operational approvals cannot bypass acceptance",()=>{
  const result=evaluateRelease({roadmap:{...roadmap,operationalAcceptance:{}},evidence:{schemaVersion:1,gates:accepted}});
  assert.equal(result.ready,false);
  assert.equal(result.unaccepted.length,REQUIRED_GATES.length);
+});
+test("an evidence-backed AI-assisted security review satisfies securityReview; missing evidence still blocks",()=>{
+ const acceptedRoadmap={...roadmap,operationalAcceptance:Object.fromEntries(REQUIRED_GATES.map(id=>[id,"accepted"]))};
+ const others=REQUIRED_GATES.filter(id=>id!=="securityReview").map(id=>({id,status:"accepted",reviewer:"Operator acceptance",reviewedAt:"2026-11-10T00:00:00Z",evidenceUrl:"https://github.com/acme/project/issues/2"}));
+ const aiReview={id:"securityReview",status:"accepted",reviewer:"AI-assisted source and adversarial-test review (owner policy 2026-10-13)",reviewedAt:"2026-11-12T00:00:00Z",evidenceUrl:"https://github.com/acme/project/pull/3"};
+ assert.equal(evaluateRelease({roadmap:acceptedRoadmap,evidence:{schemaVersion:1,gates:[...others,aiReview]}}).ready,true);
+ for(const broken of [{evidenceUrl:null},{reviewedAt:null},{reviewedAt:"not a date"},{reviewer:""},{status:"pending"},{evidenceUrl:"http://insecure.example/x"}]){
+  const result=evaluateRelease({roadmap:acceptedRoadmap,evidence:{schemaVersion:1,gates:[...others,{...aiReview,...broken}]}});
+  assert.equal(result.ready,false);
+  const failure=result.unaccepted.find(g=>g.gate==="securityReview");
+  assert.match(failure.reason,/AI-assisted or external security review/);
+  assert.match(failure.reason,/dated evidence/);
+  assert.doesNotMatch(failure.reason,/independent human|auditor/i);
+ }
 });

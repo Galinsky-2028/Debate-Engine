@@ -12,7 +12,7 @@
     "start": "next start --hostname 0.0.0.0",
     "worker:deadlines": "node scripts/deadline-worker.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.ts tests/upload-maintenance.test.mjs tests/pr-registry.test.mjs tests/archive-audit-query.test.mjs tests/request-origin.test.ts tests/release-gates.test.mjs tests/roadmap-evidence.test.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.ts tests/upload-maintenance.test.mjs tests/pr-registry.test.mjs tests/archive-audit-query.test.mjs tests/request-origin.test.ts tests/release-gates.test.mjs",
     "check": "npm run typecheck && npm test && npm run build",
     "db:migrate": "node scripts/migrate.mjs",
     "db:check": "node scripts/migrate.mjs --check",
@@ -25,7 +25,6 @@
     "audit:archive:full": "node scripts/audit-archive.mjs --all",
     "release:check": "node scripts/release-readiness.mjs",
     "test:browser": "node scripts/browser-acceptance.mjs",
-    "roadmap:sync": "node scripts/sync-roadmap-evidence.mjs",
     "test:db:restore-rehearsal": "node scripts/rehearse-postgres-restore.mjs",
     "test:clamav:live": "node --experimental-strip-types --test tests/clamav-live.integration.ts",
     "test:s3:restore-rehearsal": "node scripts/rehearse-media-recovery.mjs"

@@ -17,7 +17,7 @@ The previous one-shot endpoint remains for legacy callers, with the same max siz
 
 The new multipart workflow needs S3-compatible \`CreateMultipartUpload\`, \`UploadPart\`, \`ListParts\`, \`CompleteMultipartUpload\`, \`AbortMultipartUpload\`, \`HeadObject\`, \`GetObject\` and \`DeleteObject\` privileges. **Expiry cleanup must be scheduled before broad production use** so abandoned S3 multipart uploads do not accrue unnecessary storage costs. Storage lifecycle rules should abort incomplete multipart uploads after an approved period independent of web-server uptime. Session rows are intentionally not an archival original.
 
-The current 60 MiB limit is enforced for process memory and FFprobe safety. Large-file streaming validation, antivirus scanning, independently verified retention/restore, real browser resume testing, and a separately hosted bounded media-processing worker remain release gates. A merged implementation is not operational acceptance. See \`docs/DEVELOPMENT_PLAN.md\` and \`registry/roadmap.json\`.
+The current 60 MiB limit is enforced for process memory and FFprobe safety. Large-file streaming validation, antivirus scanning, independently verified retention/restore, real browser resume testing, and a separately hosted bounded media-processing worker remain release gates. A merged implementation is not operational acceptance. See \`docs/DEVELOPMENT_PLAN.md\` and \`registry/prs.json\`.
 
 ## Expired multipart maintenance
 

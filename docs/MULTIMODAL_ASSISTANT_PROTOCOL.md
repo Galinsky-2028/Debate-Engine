@@ -1,6 +1,6 @@
 # Public Debate Engine — multimodal and private assessment protocol
 
-Authoritative approval details: [development plan](DEVELOPMENT_PLAN.md); [44-unit roadmap](../registry/roadmap.json).
+Authoritative approval details: [development plan](DEVELOPMENT_PLAN.md); [44-unit registry](../registry/prs.json).
 
 Video is the default and the debate originator can enable audio, writing, or any combination. Each reply chooses one permitted medium. Reciprocal obligations are identical regardless of medium. Public opening rules and media scope are immutable after publication.
 

@@ -7,10 +7,14 @@ A reusable, candidate-neutral platform for asynchronous, policy-centered debates
 ## Authoritative development materials
 
 - [Full 44-unit development plan](docs/DEVELOPMENT_PLAN.md)
-- [Normative debate protocol](docs/DEBATE_PROTOCOL.md)
+- [Normative debate protocol](spec/debate-protocol.md), [state machine](spec/state-machine.md), [permissions and consent](spec/permission-and-consent-model.md), [archive and restrictions](spec/archive-and-restriction-policy.md)
+- [Architecture](docs/architecture.md) and [decision records](docs/decisions/README.md)
+- [Local development](docs/local-development.md), [deployment runbook](docs/deployment-runbook.md), [backup and restore](docs/backup-and-restore.md)
 - [Infrastructure and operations](docs/INFRASTRUCTURE.md)
-- [Canonical 44-unit PR registry](registry/prs.json)
-- [Agent handoff](AGENTS.md)
+- [Canonical 44-unit PR registry](registry/prs.json) and [acceptance evidence](docs/acceptance-evidence.md)
+- [Agent handoff](docs/agent-handoff.md) and [working rules](AGENTS.md)
+
+Source: [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine) (transferred from `neophilism/Debate-Engine`; see [repository transition](docs/REPOSITORY_NAME_TRANSITION.md)).
 
 ## Development status
 
@@ -38,7 +42,7 @@ Copy `.env.example` to `.env.local` when Neon has been intentionally configured.
 2. **Qualifying debate sequence:** only reciprocal exchanges meeting the review protocol.
 3. **Resolution media:** derivative videos requiring exact-asset permissions and, for joint products, both participants' approvals.
 
-See `docs/DEBATE_PROTOCOL.md` before implementing any write API.
+See [`spec/debate-protocol.md`](spec/debate-protocol.md) before implementing any write API.
 ## End-to-End Everywhere progress
 
 The canonical [security/e2eesa-status.json](security/e2eesa-status.json) records standard implementation, complete testing and independent expert review separately. Engine Room reads it automatically from GitHub. All initial stages are pending; existing profile locks and approved decisions remain authoritative. Read [adoption and independent-account instructions](docs/E2EESA_ADOPTION.md), and run `python3 scripts/validate_e2eesa_status.py`. Record validation does not establish product security or certification.

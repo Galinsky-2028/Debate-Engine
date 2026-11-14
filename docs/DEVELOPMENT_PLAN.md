@@ -1,4 +1,4 @@
-> **Canonical PR roadmap:** [`registry/roadmap.json`](../registry/roadmap.json). The full detailed plan below remains intact; all new PR milestones, mappings and total counts are maintained in the canonical registry. Pending multimodal, private AI-assessment and repository-rename proposals are not yet approved.
+> **Canonical PR registry:** [`registry/prs.json`](../registry/prs.json) (44 approved work units; `registry/roadmap.json` is a retired redirect). The full detailed plan below remains intact as the specification. The repository now lives at [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine) and the live deployment is described in [INFRASTRUCTURE.md](INFRASTRUCTURE.md); repository, preview and Neon identifiers inside the plan text (section 3, the source notes and the October 11 expansion) are kept as written and are historical. PDE-31–PDE-44 were approved on October 11, 2026.
 
 # Public Debate Engine
 ## Full development plan and implementation handoff
