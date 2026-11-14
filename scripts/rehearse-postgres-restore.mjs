@@ -107,7 +107,8 @@ try{
  await destination.connect();
  const restored=await fingerprint(destination);
  assert.deepEqual(restored,original,"The restored complete database must match the original.");
- assert.equal((await destination.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL")).rows[0].n,2);
+ // Other integration suites may leave committed fixtures in this disposable database; check this rehearsal's own rows.
+ assert.equal((await destination.query("SELECT count(*)::int AS n FROM submissions WHERE published_at IS NOT NULL AND id=ANY($1::uuid[])",[[ids.opening,ids.response]])).rows[0].n,2);
  // Check that published-source integrity constraints survived the export and restore.
  await destination.query("BEGIN");
  await destination.query("SAVEPOINT immutable");
