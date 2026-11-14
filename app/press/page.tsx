@@ -2,6 +2,7 @@ import Link from "next/link";
 import {database} from "../../lib/server/db";
 import {JOINT_AGREEMENT_RECORDS_SQL} from "../../lib/server/policy-agreement-sql";
 import {agreementRecordLabel,agreementRecordSentence,type AgreementScope} from "../../packages/domain/policy-view";
+import DistributionCount from "./distribution-count";
 export const dynamic="force-dynamic";
 type Release={branch_id:string;debate_id:string;title:string;originator:string;contender:string;content_sha256:string;policy_version_id:string;
  scope:AgreementScope;currently_joint:boolean;withdrawn_at:string|null;withdrawn_by:string|null;last_joint_at:string;remaining_disagreements:string};
@@ -21,6 +22,6 @@ export default async function PressPage(){
  <div className="debate-grid">{items.map(x=>{const status={scope:x.scope,currentlyJoint:x.currently_joint,withdrawnAt:x.withdrawn_at,withdrawnBy:x.withdrawn_by};
   return <article className="debate-card" key={x.branch_id}><p className="small-label">{agreementRecordLabel(status).toUpperCase()}</p><h2>{x.title}</h2><p>{agreementRecordSentence({...status,originator:x.originator,contender:x.contender})}</p>
   {x.scope==="partial"&&<p><strong>Remaining disagreements:</strong> {x.remaining_disagreements}</p>}
-  <div className="press-links"><Link className="inline-arrow" href={"/debates/"+x.debate_id}>Full public record ↗</Link><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=zip"}>Download evidence package ↗</a><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=json"}>Machine-readable manifest ↗</a></div></article>;})}</div>}
+  <DistributionCount branchId={x.branch_id}/><div className="press-links"><Link className="inline-arrow" href={"/debates/"+x.debate_id}>Full public record ↗</Link><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=zip"}>Download evidence package ↗</a><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=json"}>Machine-readable manifest ↗</a></div></article>;})}</div>}
  </div>;
 }

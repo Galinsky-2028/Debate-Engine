@@ -16,6 +16,8 @@ async function assertCurrentEditGrants(db:import("pg").PoolClient,artifactId:str
  if(revoked.rowCount)throw new HttpError(409,revoked.rows[0].owner+" withdrew editing permission for future uses on "+new Date(revoked.rows[0].revoked_at).toISOString().slice(0,10)+". This summary cannot be rendered, approved or released unless a new permission is granted.");
  throw new HttpError(409,"All original-video owners must grant clip-scoped editing rights before rendering, approval or release.");
 }
+import {requireRenderBudget} from "./budget";
+import {manifestSeconds} from "../../packages/domain/budget.ts";
 
 async function branchMember(db:import("pg").PoolClient,branchId:string,candidateId:string,subject:string){
  const r=await db.query<{originator_candidacy_id:string;responder_candidacy_id:string;debate_id:string}>(
@@ -36,6 +38,8 @@ export async function enqueueRender(input:{branchId:string;artifactId:string;can
   const clips=plan.rows[0].source_manifest.clips;
   if(!Array.isArray(clips)||!clips.length)throw new HttpError(409,"An editorial manifest with clips is required.");
   await assertCurrentEditGrants(db,input.artifactId);
+  // Optional derivative work pauses when the daily processing budget is used up; originals are never touched.
+  await requireRenderBudget(db,manifestSeconds(clips),input.artifactId);
   const job=await db.query<{id:string}>(
    "INSERT INTO durable_jobs(job_type,dedupe_key,arguments) VALUES('render_debate_summary',$1,$2::jsonb) ON CONFLICT(job_type,dedupe_key) DO UPDATE SET state='queued',available_at=now(),attempt_count=0,last_error=NULL,leased_until=NULL WHERE durable_jobs.state IN('queued','failed') RETURNING id",
    [input.artifactId,JSON.stringify({artifactId:input.artifactId})]);

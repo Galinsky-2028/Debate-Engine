@@ -74,7 +74,7 @@ export function invitedReplyOpenedAt(proposalUsableAt: string, providerAcceptedA
   return new Date(Math.max(instant(proposalUsableAt, "proposalUsableAt"), instant(providerAcceptedAt, "providerAcceptedAt"))).toISOString();
 }
 
-export function notificationDedupeKey(obligationId: string, phase: "due_soon" | "overdue", effectiveDueAt: string): string {
+export function notificationDedupeKey(obligationId: string, phase: "opened" | "due_soon" | "overdue", effectiveDueAt: string): string {
   if (!obligationId) throw new Error("obligationId is required.");
   instant(effectiveDueAt, "effectiveDueAt");
   return `obligation:${obligationId}:${phase}:${effectiveDueAt}`;
