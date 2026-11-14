@@ -9,7 +9,7 @@
 1. Operational acceptance: every gate in `registry/production-acceptance.json` and every unit's `acceptance` in `registry/prs.json` is pending.
 2. Real candidate onboarding, with the candidate's confirmation before any opening, invitation or position is published.
 3. No email provider and no webhook destinations are configured; notices and invitations stay queued and are shown as not sent.
-4. Nothing runs automatically (owner decision 2026-11-14): no schedule and no processing after requests. A platform administrator runs pending deadline and outbox jobs with Run pending jobs now on `/workspace/admin/operations` or the manual GitHub workflow; automatic processing can be re-enabled later (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
+4. Nothing runs on a schedule (owner decision 2026-11-14). Deliveries run right after the action that queued them; deadline jobs and anything left pending run when a platform administrator presses Run pending jobs now on `/workspace/admin/operations` or starts the manual GitHub workflow (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
 5. External human security review is deferred follow-up under the AGENTS.md owner policy; the November 14 review is AI-assisted, not independent.
 6. Not implemented: playback encodes and a suspension workflow.
 7. The unfinished requirement beginning "When a candidate uploads a video…" remains unresolved; no rule has been inferred.

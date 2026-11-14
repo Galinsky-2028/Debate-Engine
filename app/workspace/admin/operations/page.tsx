@@ -21,7 +21,7 @@ export default function OperationsPage(){
   {data&&<>
    <section className="workspace-panel"><h2>Health</h2><ul>
     <li>Scanner heartbeat: {data.scannerHeartbeatAgeSeconds===null?"never seen":age(data.scannerHeartbeatAgeSeconds)+" ago"}</li>
-    <li>Automatic processing: {data.automaticProcessing?"on — deliveries run after requests":"off — nothing runs until you press Run pending jobs now"}</li>
+    <li>Automatic processing: {data.automaticProcessing?"on — deliveries run right after the action that queued them; nothing runs on a schedule":"off — nothing runs until you press Run pending jobs now"}</li>
     <li>Manual workflow runs: {data.scheduledRunner?.lastRunAt?"last ran "+new Date(data.scheduledRunner.lastRunAt).toLocaleString():"never run"}</li>
     <li>Email provider: {data.emailProviderConfigured?"configured":"not configured — email stays queued, never reported sent"}</li>
     <li>Media storage: {bytes(data.storage.usedBytes)} used of {bytes(data.storage.budgetBytes)} · new uploads {data.storage.newUploadsAllowed?"allowed":"PAUSED (budget exhausted)"}</li>

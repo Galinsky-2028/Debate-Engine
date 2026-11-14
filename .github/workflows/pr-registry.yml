@@ -1,6 +1,8 @@
 name: Update PR Evidence Registry
 on:
-  # Manual only (owner decision 2026-11-14): no schedule and no automatic commit after a PR closes.
+  # No schedule (owner decision 2026-11-14). Runs when a pull request closes, or by hand.
+  pull_request:
+    types: [closed]
   workflow_dispatch:
 permissions:
   contents: write
