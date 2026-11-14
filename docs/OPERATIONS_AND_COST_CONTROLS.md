@@ -38,7 +38,7 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 ## Scheduled runs on free hosting
 
 The free Render web service has no always-on worker, so `.github/workflows/scheduled-operations.yml` calls
-`POST /api/operations/scheduled-run` every 15 minutes from a free GitHub-hosted runner. No secret is stored anywhere:
+`POST /api/operations/scheduled-run` every 3 hours from a free GitHub-hosted runner. The interval is deliberately coarse: a free Render service sleeps after 15 idle minutes and every free service in the workspace shares 750 instance-hours a month, so a 15-minute schedule would keep this service awake permanently (~744 hours) and starve the workspace's other free services. Every 3 hours costs roughly 60 instance-hours a month and a few Neon compute-hours; deadlines are hours or days long, and ordinary site requests also process due work inline. No secret is stored anywhere:
 the workflow requests a short-lived GitHub Actions OIDC token with audience `public-debate-engine-operations`, and the
 endpoint verifies its RS256 signature against GitHub's published keys and accepts it only when the issuer, audience,
 repository id `1413777544` (`Galinsky-2028/Debate-Engine`), `refs/heads/main`, the exact workflow file and a

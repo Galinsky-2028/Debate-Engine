@@ -1,10 +1,13 @@
 name: Scheduled operations
-# Free hosting has no always-on worker. Every 15 minutes this workflow proves its identity to the app with a
+# Free hosting has no always-on worker. Every 3 hours this workflow proves its identity to the app with a
 # short-lived GitHub OIDC token (no stored secret) and runs one bounded, idempotent batch of deadline jobs and
 # outbox deliveries. The app accepts only this workflow file, on main, in this repository.
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    # Every 3 hours, not more often: a free Render service sleeps after 15 idle minutes, and all free services in the
+    # workspace share 750 instance-hours a month. Frequent calls would keep this service awake around the clock and
+    # starve the other services. Requests to the site also process due work inline.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
 permissions:
   contents: read

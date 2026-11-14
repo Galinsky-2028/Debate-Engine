@@ -37,6 +37,6 @@ export async function operationsSnapshot(){
   rendering:{usedSecondsToday:render.used,budgetSecondsPerDay:render.limit,optionalRendersAllowed:render.allowed},
   destinations:destinations.rows[0],
   emailProviderConfigured:Boolean(emailProviderConfig(process.env)),
-  workerNote:"No always-on worker is presumed. Deadline jobs and deliveries run inline after requests, from the scheduled GitHub workflow (every 15 minutes, authenticated by GitHub OIDC), via `npm run worker:outbox` / `npm run worker:deadlines`, or with Run pending jobs now."
+  workerNote:"No always-on worker is presumed. Deadline jobs and deliveries run inline after requests, from the scheduled GitHub workflow (every 3 hours, authenticated by GitHub OIDC), via `npm run worker:outbox` / `npm run worker:deadlines`, or with Run pending jobs now."
  };
 }
