@@ -77,6 +77,70 @@ paths:
                   notice: { type: string }
         '404':
           description: No such published debate
+  /api/debates/{id}/sequence:
+    get:
+      operationId: getQualifyingSequences
+      summary: Qualifying sequence manifests per branch
+      description: >-
+        Every published, append-only manifest revision per branch (newest first) plus the current projection. A later assessment reversal never deletes an earlier published revision.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Qualifying sequence manifests per branch
+        '404':
+          description: Not a published debate or branch
+  /api/debates/{id}/invitations:
+    get:
+      operationId: getDebateInvitations
+      summary: Invitation delivery states for a debate
+      description: >-
+        Drafted, sent (with provider evidence) and response-due states. A candidate who was never sent an invitation is never reported as unresponsive.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invitation delivery states for a debate
+        '404':
+          description: Not a published debate or branch
+  /api/branches/{id}/rules:
+    get:
+      operationId: getBranchRuleVersions
+      summary: Branch rule versions and proposals
+      description: >-
+        Rule versions in force on one candidate-to-candidate branch and pending proposals. A proposal applies prospectively only after both participants accept the exact version.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Branch rule versions and proposals
+        '404':
+          description: Not a published debate or branch
+  /api/branches/{id}/policies:
+    get:
+      operationId: getBranchPolicyVersions
+      summary: Versioned policy proposals and current endorsements
+      description: >-
+        Immutable policy versions with scope (full or partial), addressed questions, remaining disagreements, attachment digests and current versus historical endorsements.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Versioned policy proposals and current endorsements
+        '404':
+          description: Not a published debate or branch
   /api/v1/branches/{id}/press-kit:
     get:
       operationId: getMutuallyAgreedPolicyEvidence
