@@ -34,3 +34,15 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 - Render seconds are measured as output media seconds, not CPU time.
 - Monitors are pull-only; no alerting channel is configured.
 - No spend data from Render/Neon/storage providers is read; budgets are operator-set caps.
+
+## Scheduled runs on free hosting
+
+The free Render web service has no always-on worker, so `.github/workflows/scheduled-operations.yml` calls
+`POST /api/operations/scheduled-run` every 15 minutes (free GitHub-hosted runner). The endpoint accepts only
+`Authorization: Bearer <OPERATIONS_RUN_TOKEN>` (64+ characters, compared in constant time, no cookies), runs one
+bounded batch of deadline jobs and outbox deliveries — every step is idempotent, so overlapping or repeated runs are
+harmless — and records a `scheduled_operations_run` audit event. `/workspace/admin/operations` shows whether the
+runner is configured, when it last ran and how many runs happened in the past hour. The same token is stored as the
+Render environment variable and the GitHub repository secret; rotating it means updating both. If the secret is
+absent the workflow exits without calling anything. A sleeping free service is woken by the call and retried once.
+Tests: `tests/scheduled-token.test.ts`.
