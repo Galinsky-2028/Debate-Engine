@@ -3,6 +3,7 @@ import {database, transaction} from "./db";
 import {HttpError} from "./http";
 import {labelled, type DeliveryRow} from "./outbox";
 import {enqueueAction, publicOrigin} from "../../packages/delivery/outbox-store.ts";
+import {ARTIFACT_GRANTS_CURRENT_SQL} from "./policy-agreement-sql";
 
 async function participant(db: Pick<import("pg").PoolClient, "query">, branchId: string, candidacyId: string, authSubject: string) {
   const r = await db.query<{debate_id: string; title: string; originator_candidacy_id: string; responder_candidacy_id: string; account_id: string}>(
@@ -33,6 +34,12 @@ export async function requestDistribution(input: {branchId: string; candidacyId:
         "SELECT output_sha256,duration_seconds FROM derivative_artifacts WHERE id=$1 AND branch_id=$2 AND status='released' AND rendered_storage_key IS NOT NULL",
         [input.artifactId, input.branchId]);
       if (!a.rowCount) throw new HttpError(409, "Only a summary released with both candidates' approval of the exact file can be distributed.");
+      // A release does not authorize later distribution once a source owner withdrew editing permission for future
+      // uses, or while an exceptional restriction is active on the summary.
+      const future = await db.query<{current: boolean}>(ARTIFACT_GRANTS_CURRENT_SQL, [input.artifactId]);
+      if (!future.rows[0]?.current) throw new HttpError(409, "A source owner withdrew permission for future uses of this summary; it can no longer be distributed.");
+      const restricted = await db.query("SELECT 1 FROM restriction_cases WHERE target_kind='derivative' AND target_id=$1 AND status='active'", [input.artifactId]);
+      if (restricted.rowCount) throw new HttpError(451, "This summary is under an exceptional platform restriction and cannot be distributed.");
       subjectKind = "derivative_artifact"; subjectId = input.artifactId; digest = a.rows[0].output_sha256;
       const download = origin + "/api/branches/" + input.branchId + "/derivatives/" + input.artifactId + "/download";
       data = {kind: "released_summary", debateId: p.debate_id, branchId: input.branchId, title: p.title, artifactId: input.artifactId,

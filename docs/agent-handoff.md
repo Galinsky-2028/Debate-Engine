@@ -19,35 +19,30 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 
 ## Current state (2026-11-14)
 
-- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, migrations `0001`–`0020` (23 files) plus any added by work merged after this date.
+- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, 33 migration files from `0001` to `0031` (there is no `0030`; `0003`, `0010` and `0013` each have two files).
 - Live: https://public-debate-engine.onrender.com (free Render web service, manual deploys from `main`, self-migrating container; `/api/health` reports the deployed commit). Neon project `cool-dawn-42333373`.
-- Uploads need the operator-laptop scanner running; no background worker or scheduler runs between sessions.
+- Uploads and supporting documents need the operator-laptop scanner running.
 - No real candidate debate, position, invitation or agreement has been published by the platform. Fixtures are fictional and test-only.
 - All 44 units and all seven production gates are acceptance-pending.
 
-## In-flight work (parallel branches at the time of writing)
+**Implemented in source (merged 2026-11-14):** exceptional restrictions and appeals, account closure and candidacy withdrawal ([RESTRICTIONS_AND_APPEALS.md](RESTRICTIONS_AND_APPEALS.md), [ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md)); persisted qualifying-sequence manifests, branch rule versions and administrator outage extensions ([QUALIFYING_SEQUENCE_UI.md](QUALIFYING_SEQUENCE_UI.md), [BRANCH_RULE_VERSIONS.md](BRANCH_RULE_VERSIONS.md), [DEADLINES_AND_NOTIFICATIONS.md](DEADLINES_AND_NOTIFICATIONS.md)); scoped/partial policy agreements and revocation of optional edit permissions ([POLICY_CONVERGENCE.md](POLICY_CONVERGENCE.md), [DERIVATIVE_RIGHTS.md](DERIVATIVE_RIGHTS.md)); verified delivery destinations, an honest outbox, notifications, distribution and invitations ([DISSEMINATION_AND_NOTIFICATIONS.md](DISSEMINATION_AND_NOTIFICATIONS.md), [INVITATIONS.md](INVITATIONS.md)); storage/render budgets and operations monitors ([OPERATIONS_AND_COST_CONTROLS.md](OPERATIONS_AND_COST_CONTROLS.md)); and the fixes from the AI-assisted [security review](SECURITY_REVIEW_2026-11-14.md). The [spec/](../spec/state-machine.md) files and [acceptance-evidence.md](acceptance-evidence.md) describe this code.
 
-Each adds its own document; until it merges, the linked file may not exist.
+**What remains:**
 
-| Area | Document |
-| --- | --- |
-| Exceptional restrictions and appeals | [RESTRICTIONS_AND_APPEALS.md](RESTRICTIONS_AND_APPEALS.md) |
-| Account closure and election withdrawal | [ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md) |
-| Persisted sequence manifests, branch rule versions, outage adjustments | [BRANCH_RULE_VERSIONS.md](BRANCH_RULE_VERSIONS.md) |
-| Partial agreements and optional-permission revocation | added with that work (PDE-19/20) |
-| Dissemination outbox and notifications | [DISSEMINATION_AND_NOTIFICATIONS.md](DISSEMINATION_AND_NOTIFICATIONS.md) |
-| Invitations | [INVITATIONS.md](INVITATIONS.md) |
-| Budgets and cost controls | [OPERATIONS_AND_COST_CONTROLS.md](OPERATIONS_AND_COST_CONTROLS.md) |
-
-After they merge, update the **planned** rows in [spec/state-machine.md](../spec/state-machine.md) and the pending column of [acceptance-evidence.md](acceptance-evidence.md).
+- Operational acceptance: every gate in `registry/production-acceptance.json` is pending; `npm run release:check` exits 2.
+- Real candidate onboarding: verification standard, real accounts and the candidate's confirmation before any opening, invitation or position.
+- No email provider (`EMAIL_API_URL`/`EMAIL_API_KEY`/`EMAIL_FROM`) and no webhook destinations are configured, so notices and invitations stay "Queued — not sent".
+- No always-on worker on free hosting: a platform administrator runs pending deadline and outbox jobs from `/workspace/admin/operations`; a scheduled worker can be added later with cost approval.
+- External human security review is deferred follow-up under the AGENTS.md policy; it is not a release blocker and must not be claimed.
+- Not implemented: obligations superseded by a recorded agreement; `distribute` grants (no route creates or consumes them); playback encodes; a suspension workflow.
+- The unfinished requirement "When a candidate uploads a video…" (below).
 
 ## Next unblocked tasks
 
-1. Reconcile the parallel branches above, run all checks, and update the spec rows they complete.
-2. Press kit agreement source: `lib/server/press-kit.ts` selects the latest version both candidates *ever* accepted (`policy_acceptances`) rather than one both *currently* endorse (`policy_endorsement_events`), so a withdrawn agreement can still appear in a press kit. Align it with `releaseSummary`, which already uses current endorsement, and add a test.
-3. Add axe checks for a populated debate page, embed and workspace pages ([accessibility-test-plan.md](accessibility-test-plan.md)).
-4. Complete and review `security/e2eesa-inventory.json`, then record a dated AI-assisted `securityReview` entry with evidence. Do not claim external review.
-5. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
+1. Add axe checks for a populated debate page, embed and workspace pages ([accessibility-test-plan.md](accessibility-test-plan.md)).
+2. Complete and review `security/e2eesa-inventory.json`, then record a dated AI-assisted `securityReview` entry with evidence. Do not claim external review.
+3. Make distribution refuse a released summary whose edit grants were revoked or that has an active restriction case, with tests.
+4. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
 
 ## Blocked on the owner
 

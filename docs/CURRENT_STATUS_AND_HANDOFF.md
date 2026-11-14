@@ -1,5 +1,22 @@
 # Public Debate Engine current development and handoff status
 
+## Current status (2026-11-14)
+
+**Implemented in source and merged:** everything listed in the October 15 section below, plus persisted qualifying-sequence revisions, per-branch rule versions, administrator outage extensions, scoped/partial policy agreements, revocation of optional edit permissions, exceptional restrictions with appeals, account closure and candidacy withdrawal, verified delivery destinations with an honest outbox (notifications, distribution, invitations), storage/render budgets, operations monitors, and the fixes from the AI-assisted [security review](SECURITY_REVIEW_2026-11-14.md). Rules, transitions and covering tests: [spec/state-machine.md](../spec/state-machine.md); evidence per unit: [acceptance-evidence.md](acceptance-evidence.md); next tasks: [agent-handoff.md](agent-handoff.md).
+
+**Remaining:**
+
+1. Operational acceptance: every gate in `registry/production-acceptance.json` and every unit's `acceptance` in `registry/prs.json` is pending.
+2. Real candidate onboarding, with the candidate's confirmation before any opening, invitation or position is published.
+3. No email provider and no webhook destinations are configured; notices and invitations stay queued and are shown as not sent.
+4. No always-on worker on free hosting: platform administrators run pending deadline and outbox jobs from `/workspace/admin/operations`; a scheduled worker can be added later with cost approval.
+5. External human security review is deferred follow-up under the AGENTS.md owner policy; the November 14 review is AI-assisted, not independent.
+6. The unfinished requirement beginning "When a candidate uploads a video…" remains unresolved; no rule has been inferred.
+
+## History
+
+The sections below are kept as dated history.
+
 ## November 14 repository transfer
 
 The repository was transferred to [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-Engine); GitHub redirects the old owner path. `registry/prs.json`, the CI and registry workflows, the E2EESA status files and the live-deployment smoke check now use that identity ([details](REPOSITORY_NAME_TRANSITION.md)). The web container applies pending migrations before it starts and `/api/health` reports the deployed commit ([deployment runbook](deployment-runbook.md)). The handoff documents required by section 20 of the plan are indexed in [agent-handoff.md](agent-handoff.md).

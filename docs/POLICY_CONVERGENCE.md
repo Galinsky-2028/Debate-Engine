@@ -43,4 +43,4 @@ The press kit, `/feed.xml` and `/press` previously decided "mutually accepted" b
 
 ## Pending scope
 
-Request-changes as a distinct action (counterproposal covers it), an explicit "jointly preferred solution" affirmation text stored with the acceptance, independent candidate browser acceptance, and an independent human review of this feature remain open. The protocol does not infer consensus from silence. Known limit: the JSON body limit of `parseJson` (40,000 characters) is lower than the 50,000-character policy limit, so very long proposals are refused with HTTP 413.
+Request-changes as a distinct action (counterproposal covers it), an explicit "jointly preferred solution" affirmation text stored with the acceptance, independent candidate browser acceptance, and an independent human review of this feature remain open. The protocol does not infer consensus from silence. (The earlier 40,000-character JSON body limit was replaced by a 256 KiB byte cap in the November 14 security review, which fits a 50,000-character proposal in any script.)
