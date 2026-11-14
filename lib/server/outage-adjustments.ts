@@ -14,11 +14,12 @@ type Db=Pick<PoolClient,"query">;
 export async function extendObligationForOutage(db:Db,input:{obligationId:string;adminAccountId:string;seconds:unknown;publicReason:unknown}){
  let parsed;
  try{parsed=parseOutageExtension(input)}catch(e){throw new HttpError(400,(e as Error).message)}
- const found=await db.query<{id:string;debate_id:string;branch_id:string;obligation_type:string;obligated_candidacy_id:string;due_at:Date|null;received_at:Date|null}>(
-  "SELECT id,debate_id,branch_id,obligation_type,obligated_candidacy_id,due_at,received_at FROM reply_obligations WHERE id=$1 FOR UPDATE",[input.obligationId]);
+ const found=await db.query<{id:string;debate_id:string;branch_id:string;obligation_type:string;obligated_candidacy_id:string;due_at:Date|null;received_at:Date|null;superseded:boolean}>(
+  "SELECT id,debate_id,branch_id,obligation_type,obligated_candidacy_id,due_at,received_at,EXISTS(SELECT 1 FROM obligation_supersessions s WHERE s.obligation_id=reply_obligations.id) AS superseded FROM reply_obligations WHERE id=$1 FOR UPDATE",[input.obligationId]);
  const o=found.rows[0];
  if(!o)throw new HttpError(404,"Obligation not found.");
  if(o.received_at)throw new HttpError(409,"This obligation was already fulfilled; its recorded timeliness is not changed retroactively.");
+ if(o.superseded)throw new HttpError(409,"This obligation was closed by the candidates' recorded agreement; there is no deadline to extend.");
  if(!o.due_at)throw new HttpError(409,"This obligation has no fixed deadline to extend.");
  const made=await db.query<{id:string;created_at:Date}>(
   "INSERT INTO obligation_outage_adjustments(obligation_id,seconds,public_reason,authorized_by) VALUES($1,$2,$3,$4) RETURNING id,created_at",
@@ -41,7 +42,8 @@ export async function extendObligationForOutage(db:Db,input:{obligationId:string
 export async function listUnfulfilledObligations(db:Db){
  const result=await db.query(`WITH projected AS (
    SELECT ro.*,ro.due_at+COALESCE(sum(oa.seconds),0)*interval '1 second' AS effective_due_at,COALESCE(sum(oa.seconds),0)::integer AS extension_seconds
-   FROM reply_obligations ro LEFT JOIN obligation_outage_adjustments oa ON oa.obligation_id=ro.id WHERE ro.received_at IS NULL GROUP BY ro.id)
+   FROM reply_obligations ro LEFT JOIN obligation_outage_adjustments oa ON oa.obligation_id=ro.id WHERE ro.received_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM obligation_supersessions s WHERE s.obligation_id=ro.id) GROUP BY ro.id)
   SELECT p.id,p.debate_id,d.title AS debate_title,p.branch_id,p.obligation_type,c.public_name AS obligated_candidate,p.opened_at,p.due_at,p.effective_due_at,p.extension_seconds,
    CASE WHEN p.effective_due_at IS NOT NULL AND now()>p.effective_due_at THEN 'overdue' ELSE 'open' END AS state
   FROM projected p JOIN debates d ON d.id=p.debate_id JOIN candidacies c ON c.id=p.obligated_candidacy_id

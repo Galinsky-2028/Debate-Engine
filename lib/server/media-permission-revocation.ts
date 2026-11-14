@@ -15,6 +15,7 @@ export async function ownMediaPermissions(input:{mediaId:string;authSubject:stri
   revocable:(x.permission==="edit"||x.permission==="distribute")&&!x.revoked_at,
   effect:x.revoked_at?(x.artifact_status==="released"
    ?"Already released before withdrawal: stays public with a dated notice. Distributed copies cannot be recalled."
+   :x.permission==="distribute"?"Withdrawn: this permission can no longer authorize distribution of the summary."
    :"Withdrawn: this permission can no longer authorize rendering, approval or release."):null}))};
 }
 
@@ -50,7 +51,9 @@ export async function revokeMediaPermission(input:{mediaId:string;permissionId:s
   await db.query("INSERT INTO audit_events(actor_account_id,action,target_kind,target_id,context) VALUES($1,'media_permission_revoked','media_permission',$2,$3::jsonb)",
    [g.account_id,input.permissionId,JSON.stringify({mediaAssetId:input.mediaId,permission:g.permission})]);
   return {revocationId:row.rows[0].id,permissionId:input.permissionId,revokedAt:row.rows[0].revoked_at,alreadyReleased,
-   effect:alreadyReleased?"The already released summary stays public with a dated notice; copies already distributed cannot be recalled."
+   effect:g.permission==="distribute"
+    ?"The summary can no longer be distributed on your behalf; queued deliveries are stopped and copies already distributed cannot be recalled."
+    :alreadyReleased?"The already released summary stays public with a dated notice; copies already distributed cannot be recalled."
     :"This permission can no longer authorize rendering, approval or release."};
  });
 }

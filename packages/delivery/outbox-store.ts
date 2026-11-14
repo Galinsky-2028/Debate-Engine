@@ -47,12 +47,13 @@ async function notificationDestinations(db: Queryable, candidacyId: string) {
 export async function enqueueObligationNotifications(db: Queryable, input: {obligationId: string; phase: NotificationPhase; origin?: string}) {
   const o = (await db.query<{
     id: string; debate_id: string; branch_id: string; obligated_candidacy_id: string; obligation_type: "review" | "reply";
-    received_at: Date | null; effective_due_at: Date | null; title: string;
+    received_at: Date | null; effective_due_at: Date | null; title: string; superseded: boolean;
   }>(`SELECT ro.id,ro.debate_id,ro.branch_id,ro.obligated_candidacy_id,ro.obligation_type,ro.received_at,d.title,
+      EXISTS(SELECT 1 FROM obligation_supersessions s WHERE s.obligation_id=ro.id) AS superseded,
       ro.due_at + COALESCE((SELECT sum(oa.seconds) FROM obligation_outage_adjustments oa WHERE oa.obligation_id=ro.id),0) * interval '1 second' AS effective_due_at
       FROM reply_obligations ro JOIN debates d ON d.id=ro.debate_id WHERE ro.id=$1`, [input.obligationId])).rows[0];
   if (!o) return 0;
-  if (input.phase !== "opened" && o.received_at) return 0;
+  if (input.phase !== "opened" && (o.received_at || o.superseded)) return 0;
   const dueIso = o.effective_due_at ? new Date(o.effective_due_at).toISOString() : null;
   if (input.phase !== "opened" && !dueIso) return 0;
   const key = dueIso ? notificationDedupeKey(o.id, input.phase, dueIso) : `obligation:${o.id}:${input.phase}:no-deadline`;
@@ -132,7 +133,7 @@ export function defaultAdapters(env: Record<string, string | undefined> = proces
   };
 }
 
-type Claimed = {id: string; action_type: string; payload: OutboxPayload; attempts: number; max_attempts: number; lease_token: string; created_at: Date; destination_id: string};
+type Claimed = {id: string; action_type: string; payload: OutboxPayload; attempts: number; max_attempts: number; lease_token: string; created_at: Date; destination_id: string; subject_kind: string | null; subject_id: string | null};
 async function claim(pool: Pool): Promise<Claimed | null> {
   const r = await pool.query<Claimed>(`
     WITH c AS (
@@ -144,7 +145,7 @@ async function claim(pool: Pool): Promise<Claimed | null> {
     UPDATE outgoing_actions o SET state='sending',attempts=o.attempts+1,lease_token=$1,
       lease_expires_at=now()+($2*interval '1 second'),last_attempt_at=now()
     FROM c WHERE o.id=c.id
-    RETURNING o.id,o.action_type,o.payload,o.attempts,o.max_attempts,o.lease_token,o.created_at,o.destination_id`,
+    RETURNING o.id,o.action_type,o.payload,o.attempts,o.max_attempts,o.lease_token,o.created_at,o.destination_id,o.subject_kind,o.subject_id`,
     [randomUUID(), OUTBOX_LEASE_SECONDS]);
   return r.rows[0] ?? null;
 }
@@ -167,6 +168,8 @@ export async function processOutbox(pool: Pool, options: {limit?: number; adapte
     let outcome: AttemptOutcome;
     if (!dest || dest.disabled_at) outcome = {kind: "failed", retryable: false, error: "Destination was disabled before delivery."};
     else if (!dest.verified_at && job.action_type !== "destination_verification") outcome = {kind: "failed", retryable: false, error: "Destination is not verified."};
+    else if (job.action_type === "distribution" && job.subject_kind === "derivative_artifact" && !await summaryGrantsCurrent(pool, job.subject_id))
+      outcome = {kind: "failed", retryable: false, error: "A source owner withdrew editing or distribution permission before delivery; not sent."};
     else {
       const request: OutboxSendRequest = {actionId: job.id, actionType: job.action_type, createdAt: new Date(job.created_at).toISOString(), payload: job.payload, destination: dest};
       try { outcome = await (dest.kind === "webhook" ? adapters.webhook(request) : adapters.email(request)); }
@@ -191,6 +194,13 @@ export async function processOutbox(pool: Pool, options: {limit?: number; adapte
     else summary.retrying++;
   }
   return summary;
+}
+/** A summary queued for distribution is re-checked at send time: a withdrawn edit or distribute grant stops it. */
+async function summaryGrantsCurrent(pool: Pool, artifactId: string | null) {
+  if (!artifactId) return false;
+  const r = await pool.query<{ok: boolean}>(
+    "SELECT COALESCE(public.pde_artifact_edit_grants_current($1::uuid),false) AND COALESCE(public.pde_artifact_distribute_grants_current($1::uuid),false) AS ok", [artifactId]);
+  return Boolean(r.rows[0]?.ok);
 }
 async function release(pool: Pool, job: Claimed) {
   await pool.query("UPDATE outgoing_actions SET state='pending',attempts=attempts-1,lease_token=NULL,lease_expires_at=NULL WHERE id=$1 AND lease_token=$2 AND state='sending'", [job.id, job.lease_token]);

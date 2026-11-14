@@ -9,8 +9,10 @@ type Artifact={id:string;status:string;output_sha256:string;manifest_sha256:stri
  source_manifest:{clips:Segment[];outputKind:string;releaseTitle:string};
  rendered_at:string|null;duration_seconds:string|null;has_file:boolean};
 type Grant={artifact_id:string;permission_id:string;media_asset_id:string;candidate_id:string;granted_at:string;revoked_at:string|null;scope:{artifactId:string;clipStart:number;clipEnd:number}};
+type DistributeGrant={artifact_id:string;permission_id:string;media_asset_id:string;candidate_id:string;granted_at:string;revoked_at:string|null};
 type Directory={branch:{debate_id:string;originator_candidacy_id:string;responder_candidacy_id:string};
  participantId:string|null;artifacts:Artifact[];ownerConsentGrants:Grant[];candidateOutputApprovals:Array<{artifact_id:string;candidacy_id:string}>;
+ distributionGrants?:DistributeGrant[];distributionPermissions?:Record<string,Array<{mediaAssetId:string;ownerName:string;state:string}>>;
  futureUseWithdrawals?:Array<{artifact_id:string;owner_name:string;revoked_at:string}>};
 const kindLabels:{[key:string]:string}={master:"Faithful concise master (20 minutes max)",five_minutes:"Five-minute summary",three_minutes:"Three-minute summary",one_minute:"One-minute summary",thirty_seconds:"Thirty-second summary"};
 const maxTime:{[key:string]:number}={master:1200,five_minutes:300,three_minutes:180,one_minute:60,thirty_seconds:30};
@@ -93,6 +95,23 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
     :"Permission withdrawn. This summary can no longer be rendered, approved or released with that excerpt.";
   });
  }
+ function distributeGrants(artifact:Artifact,mediaAssetId:string){
+  return (info?.distributionGrants||[]).filter(g=>g.artifact_id===artifact.id&&g.media_asset_id===mediaAssetId);
+ }
+ async function grantDistribution(artifact:Artifact,mediaAssetId:string){
+  await act(async()=>{
+   await send("/api/media/"+mediaAssetId+"/distribute-permissions",{candidacyId:candidateId,scope:{artifactId:artifact.id}});
+   return "Your permission to distribute this summary is recorded. It is separate from editing permission and you can withdraw it for future distributions.";
+  });
+ }
+ async function revokeDistribution(g:DistributeGrant){
+  if(revoking!==g.permission_id){setRevoking(g.permission_id);setReason("");return;}
+  await act(async()=>{
+   await send("/api/media/"+g.media_asset_id+"/distribute-permissions/"+g.permission_id+"/revoke",{reason:reason.trim()||null});
+   setRevoking(null);
+   return "Distribution permission withdrawn. The summary can no longer be distributed; copies already distributed cannot be recalled.";
+  });
+ }
  async function queue(artifact:Artifact){
   await act(async()=>{
    const response=await send("/api/branches/"+branchId+"/derivatives/"+artifact.id+"/render",{candidacyId:candidateId});
@@ -164,6 +183,21 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
        {a.status==="draft"&&!granted&&source?.candidacy_id===candidateId&&<button disabled={busy} onClick={()=>grant(a,clip)}>Grant editing permission for exactly this clip</button>}
       </div>;
      })}
+     <div className="workroom-clip">
+      <p className="small-label">DISTRIBUTION PERMISSION (SEPARATE FROM EDITING)</p>
+      {[...new Set(a.source_manifest.clips.map(c=>c.mediaAssetId))].map(mediaAssetId=>{
+       const source=available.get(mediaAssetId),grants=distributeGrants(a,mediaAssetId),current=grants.find(g=>!g.revoked_at);
+       return <div key={mediaAssetId}>
+        <p>{source?.candidate_name||"Source owner"} · {current?"Distribution permission granted":grants.length?"Distribution permission withdrawn — no current permission":"Distribution permission not granted"}</p>
+        {current&&current.candidate_id===candidateId&&<>
+         {revoking===current.permission_id&&<label>Optional reason (kept with your account, not published)<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
+         <button disabled={busy} onClick={()=>revokeDistribution(current)}>{revoking===current.permission_id?"Confirm: withdraw distribution permission":"Withdraw my distribution permission"}</button>
+        </>}
+        {!current&&source?.candidacy_id===candidateId&&<button disabled={busy} onClick={()=>grantDistribution(a,mediaAssetId)}>Grant permission to distribute this summary</button>}
+       </div>;
+      })}
+      {a.status==="released"&&(info.distributionPermissions?.[a.id]||[]).some(o=>o.state!=="current")&&<p className="form-alert" role="status">Cannot be distributed yet: {(info.distributionPermissions?.[a.id]||[]).filter(o=>o.state!=="current").map(o=>o.ownerName+(o.state==="withdrawn"?" withdrew distribution permission":" has not granted distribution permission")).join("; ")}.</p>}
+     </div>
      {a.status==="draft"&&<button disabled={busy||!a.source_manifest.clips.every(x=>hasGrant(a,x))} onClick={()=>queue(a)}>Queue video rendering ↗</button>}
      {a.has_file&&["awaiting_approval","approved"].includes(a.status)&&<>
       <p><a className="inline-arrow" href={"/api/branches/"+branchId+"/derivatives/"+a.id+"/preview"} target="_blank" rel="noopener noreferrer">Watch exact rendered file ↗</a></p>

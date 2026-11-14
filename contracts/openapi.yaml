@@ -98,7 +98,7 @@ paths:
       operationId: getDebateInvitations
       summary: Invitation delivery states for a debate
       description: >-
-        Drafted, sent (with provider evidence) and response-due states. A candidate who was never sent an invitation is never reported as unresponsive.
+        Drafted, sent (with provider evidence) and response-due states. With provider evidence and a reply window, the due time comes from a durable reply obligation (also listed in the debate's obligations with from_invitation=true). A candidate who was never sent an invitation is never reported as unresponsive.
       parameters:
         - name: id
           in: path

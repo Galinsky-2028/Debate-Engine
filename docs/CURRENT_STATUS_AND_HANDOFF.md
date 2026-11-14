@@ -2,7 +2,7 @@
 
 ## Current status (2026-11-14)
 
-**Implemented in source and merged:** everything listed in the October 15 section below, plus persisted qualifying-sequence revisions, per-branch rule versions, administrator outage extensions, scoped/partial policy agreements, revocation of optional edit permissions, exceptional restrictions with appeals, account closure and candidacy withdrawal, verified delivery destinations with an honest outbox (notifications, distribution, invitations), storage/render budgets, operations monitors, and the fixes from the AI-assisted [security review](SECURITY_REVIEW_2026-11-14.md). Rules, transitions and covering tests: [spec/state-machine.md](../spec/state-machine.md); evidence per unit: [acceptance-evidence.md](acceptance-evidence.md); next tasks: [agent-handoff.md](agent-handoff.md).
+**Implemented in source and merged:** everything listed in the October 15 section below, plus persisted qualifying-sequence revisions, per-branch rule versions, administrator outage extensions, scoped/partial policy agreements, revocation of optional edit permissions, exceptional restrictions with appeals, account closure and candidacy withdrawal, verified delivery destinations with an honest outbox (notifications, distribution, invitations), storage/render budgets, operations monitors, obligations closed by a recorded joint full agreement, separate `distribute` grants for released summaries, durable invitation response clocks, and the fixes from the AI-assisted [security review](SECURITY_REVIEW_2026-11-14.md). Rules, transitions and covering tests: [spec/state-machine.md](../spec/state-machine.md); evidence per unit: [acceptance-evidence.md](acceptance-evidence.md); next tasks: [agent-handoff.md](agent-handoff.md).
 
 **Remaining:**
 
@@ -11,7 +11,8 @@
 3. No email provider and no webhook destinations are configured; notices and invitations stay queued and are shown as not sent.
 4. No always-on worker on free hosting: platform administrators run pending deadline and outbox jobs from `/workspace/admin/operations`; a scheduled worker can be added later with cost approval.
 5. External human security review is deferred follow-up under the AGENTS.md owner policy; the November 14 review is AI-assisted, not independent.
-6. The unfinished requirement beginning "When a candidate uploads a video…" remains unresolved; no rule has been inferred.
+6. Not implemented: playback encodes and a suspension workflow.
+7. The unfinished requirement beginning "When a candidate uploads a video…" remains unresolved; no rule has been inferred.
 
 ## History
 

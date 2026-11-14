@@ -29,7 +29,7 @@ Reporting semantics (`packages/domain/policy-view.ts`, `branchAgreement`):
 - each endorsing a different version → "No joint agreement — candidates endorsed different versions";
 - formerly joint, now withdrawn → "No current joint agreement — earlier support was withdrawn", with the history kept.
 
-Publication events: `policy_jointly_accepted` (full) vs `policy_partially_accepted_jointly` (partial); payloads include `scope` and `resolvesDebate`.
+Publication events: `policy_jointly_accepted` (full) vs `policy_partially_accepted_jointly` (partial); payloads include `scope` and `resolvesDebate`. A joint **full** agreement also closes every still-open review/reply obligation on the branch in the same transaction (`obligations_superseded_by_agreement`, "Closed by the candidates' recorded agreement"); a partial agreement does not, and a later withdrawal reopens nothing retroactively ([DEADLINES_AND_NOTIFICATIONS.md](DEADLINES_AND_NOTIFICATIONS.md)). `acceptPolicy` returns `supersededObligations`.
 
 `GET /api/branches/{id}/policies` returns each version with scope, notes, addressed question ids, attachments (label, filename, SHA-256), parent id, current and historical approvers, plus the branch's published questions and documents and the computed `agreement`. `POST` accepts `scope`, `changesSummary`, `remainingDisagreements`, `addressedQuestionIds`, `attachmentDocumentIds` and `parentVersionId`. The debate page workspace offers a scope selector, question checklist, attachment picker, "Counterpropose from this version" and a line-level diff against the parent version (`lineDiff`).
 

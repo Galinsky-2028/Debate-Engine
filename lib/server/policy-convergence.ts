@@ -81,7 +81,11 @@ export async function acceptPolicy(input:{branchId:string;candidateId:string;aut
   await db.query("INSERT INTO publication_events(debate_id,branch_id,actor_candidacy_id,kind,object_id,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)",
    [member.debate_id,input.branchId,input.candidateId,policyAcceptanceEventKind(jointlyAgreed,scope,previous),
     input.versionId,JSON.stringify({sha256:input.sha256,jointlyAgreed,scope,resolvesDebate:jointlyAgreed&&scope==="full",previous:previous||null})]);
-  return {policyVersionId:input.versionId,jointlyAgreed,scope,partialAgreement:jointlyAgreed&&scope==="partial",resolvesDebate:jointlyAgreed&&scope==="full",currentlyEndorsed:true};
+  // A current joint FULL agreement closes every still-open review/reply obligation on this branch in this same
+  // transaction (append-only obligation_supersessions + one 'obligations_superseded_by_agreement' event). Partial does not.
+  const supersededObligations=jointlyAgreed&&scope==="full"
+   ?(await db.query<{n:number}>("SELECT public.pde_supersede_obligations_by_agreement($1) AS n",[input.versionId])).rows[0].n:0;
+  return {policyVersionId:input.versionId,jointlyAgreed,scope,partialAgreement:jointlyAgreed&&scope==="partial",resolvesDebate:jointlyAgreed&&scope==="full",currentlyEndorsed:true,supersededObligations};
  });
 }
 export async function withdrawPolicy(input:{branchId:string;candidateId:string;authSubject:string;versionId:string;sha256:string}){
