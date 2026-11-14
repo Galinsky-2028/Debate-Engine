@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-14T23:46:53Z",
+  "observedAt": "2026-11-14T23:59:22Z",
   "units": [
     {
       "id": "PDE-01",
@@ -869,6 +869,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5317574629,
+      "number": 94,
+      "title": "Close obligations on agreement, require distribute grants, add invitation response clocks",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/94",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-14T23:54:40Z",
+      "updatedAt": "2026-11-14T23:59:10Z",
+      "closedAt": "2026-11-14T23:59:10Z",
+      "mergedAt": "2026-11-14T23:59:10Z",
+      "headSha": "ad419df4ef548e3b58c739d5b3d4dec65ea4d69b",
+      "baseRef": "main",
+      "mergeCommitSha": "ccfd15970061ed70360a826824b9d64d1c5e1833"
+    },
     {
       "id": 5317483839,
       "number": 93,
