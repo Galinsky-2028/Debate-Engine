@@ -40,7 +40,7 @@ export async function debateFixture(db){
  const responseC=(await db.query("INSERT INTO submissions(debate_id,branch_id,candidacy_id,parent_submission_id,media_asset_id,kind) VALUES($1,$2,$3,$4,$5,'response') RETURNING id",[debate,branchAC,c,opening,videoC])).rows[0].id;
  const qC=(await db.query("INSERT INTO questions(submission_id,asked_by_candidacy_id,ordinal,question_text,video_timestamp_seconds) VALUES($1,$2,1,'Why not a toll?',3) RETURNING id",[responseC,c])).rows[0].id;
  await db.query("UPDATE submissions SET published_at=now() WHERE id=$1",[responseC]);
- const doc=async(submission,uploader,sha)=>(await db.query("INSERT INTO submission_documents(submission_id,uploaded_by_candidacy_id,filename,storage_key,sha256,size_bytes,mime_type,label) VALUES($1,$2,'plan.pdf',$3,$4,100,'application/pdf','Fictional cost table') RETURNING id",
+ const doc=async(submission,uploader,sha)=>(await db.query("INSERT INTO submission_documents(submission_id,uploaded_by_candidacy_id,filename,storage_key,sha256,size_bytes,mime_type,label,scanner,scan_verdict,scanned_at) VALUES($1,$2,'plan.pdf',$3,$4,100,'application/pdf','Fictional cost table','clamav','clean',now()) RETURNING id",
   [submission,uploader,"fixture-doc/"+randomUUID(),sha])).rows[0].id;
  const docA=await doc(opening,a,"1".repeat(64)),docB=await doc(responseB,b,"2".repeat(64));
  // An unpublished draft and its document must never be attachable.
