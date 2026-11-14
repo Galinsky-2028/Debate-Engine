@@ -1,4 +1,4 @@
-export type ObligationState = "open" | "overdue" | "fulfilled_on_time" | "fulfilled_late";
+export type ObligationState = "open" | "overdue" | "fulfilled_on_time" | "fulfilled_late" | "superseded_by_agreement";
 
 export type OutageAdjustment = {
   id: string;
@@ -12,6 +12,8 @@ export type ObligationClock = {
   receivedAt?: string | null;
   processedAt?: string | null;
   adjustments?: readonly OutageAdjustment[];
+  /** Set when a current joint full-scope agreement closed the still-open obligation (migration 0032). */
+  supersededAt?: string | null;
 };
 
 export type ObligationProjection = {
@@ -19,7 +21,21 @@ export type ObligationProjection = {
   effectiveDueAt: string | null;
   receivedAt: string | null;
   processedAt: string | null;
+  supersededAt: string | null;
 };
+
+/** Neutral public wording for every obligation state. A missed deadline is never described as a concession. */
+export const OBLIGATION_STATE_LABELS: Record<ObligationState, string> = {
+  open: "Response due",
+  overdue: "No response received by the due date",
+  fulfilled_on_time: "Completed on time",
+  fulfilled_late: "Reply received late",
+  superseded_by_agreement: "Closed by the candidates' recorded agreement",
+};
+
+export function obligationStateLabel(state: string): string {
+  return (OBLIGATION_STATE_LABELS as Record<string, string>)[state] ?? state;
+}
 
 function instant(value: string, label: string): number {
   const parsed = Date.parse(value);
@@ -56,8 +72,14 @@ export function projectObligation(clock: ObligationClock, now: string): Obligati
   if (processedAt !== null && receivedAt === null) throw new Error("Processing cannot succeed without a receipt.");
   if (processedAt !== null && processedAt < receivedAt!) throw new Error("processedAt cannot precede receivedAt.");
 
+  const supersededAt = clock.supersededAt ? instant(clock.supersededAt, "supersededAt") : null;
+  if (supersededAt !== null && receivedAt !== null) throw new Error("A received obligation cannot be superseded.");
+  if (supersededAt !== null && supersededAt < openedAt) throw new Error("supersededAt cannot precede openedAt.");
+
   let state: ObligationState;
-  if (receivedAt !== null) state = effectiveDue === null || receivedAt <= effectiveDue ? "fulfilled_on_time" : "fulfilled_late";
+  // An agreement that closed the obligation before anything was received is not a missed deadline, even after due time.
+  if (supersededAt !== null) state = "superseded_by_agreement";
+  else if (receivedAt !== null) state = effectiveDue === null || receivedAt <= effectiveDue ? "fulfilled_on_time" : "fulfilled_late";
   else state = effectiveDue !== null && observedAt > effectiveDue ? "overdue" : "open";
 
   return {
@@ -65,6 +87,7 @@ export function projectObligation(clock: ObligationClock, now: string): Obligati
     effectiveDueAt: effectiveDue === null ? null : new Date(effectiveDue).toISOString(),
     receivedAt: receivedAt === null ? null : new Date(receivedAt).toISOString(),
     processedAt: processedAt === null ? null : new Date(processedAt).toISOString(),
+    supersededAt: supersededAt === null ? null : new Date(supersededAt).toISOString(),
   };
 }
 
@@ -98,4 +121,16 @@ export function parseOutageExtension(raw: {seconds: unknown; publicReason: unkno
 export function deadlineJobKey(obligationId: string, effectiveDueAt: string): string {
   if (!obligationId) throw new Error("obligationId is required.");
   return `obligation:${obligationId}:deadline:${new Date(instant(effectiveDueAt, "effectiveDueAt")).toISOString()}`;
+}
+
+/**
+ * The durable response clock of a direct invitation (migration 0034 mirrors this in SQL): it opens at
+ * invitedReplyOpenedAt and lasts the debate's reply window. No provider evidence or no reply window → no clock.
+ */
+export function invitationResponseClock(debatePublishedAt: string, providerAcceptedAt: string | null, replyWindowHours: number | null): {openedAt: string; dueAt: string} | null {
+  if (replyWindowHours === null) return null;
+  if (!Number.isSafeInteger(replyWindowHours) || replyWindowHours <= 0) throw new Error("replyWindowHours must be a positive whole number.");
+  const openedAt = invitedReplyOpenedAt(debatePublishedAt, providerAcceptedAt);
+  if (openedAt === null) return null;
+  return {openedAt, dueAt: new Date(Date.parse(openedAt) + replyWindowHours * 3600_000).toISOString()};
 }

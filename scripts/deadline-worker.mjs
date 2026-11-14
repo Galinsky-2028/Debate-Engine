@@ -43,8 +43,8 @@ async function processOne(pool) {
     if (typeof obligationId !== "string") throw new Error("Deadline job is missing obligationId.");
 
     const obligation = await db.query(`
-      SELECT ro.id,ro.debate_id,ro.branch_id,ro.obligated_candidacy_id,ro.obligation_type,ro.opened_at,
-        ro.received_at,ro.due_at + COALESCE((
+      SELECT ro.id,ro.debate_id,ro.branch_id,ro.obligated_candidacy_id,ro.obligation_type,ro.opened_at,ro.invitation_id,
+        ro.received_at,(SELECT s.superseded_at FROM obligation_supersessions s WHERE s.obligation_id=ro.id) AS superseded_at,ro.due_at + COALESCE((
           SELECT sum(oa.seconds) FROM obligation_outage_adjustments oa WHERE oa.obligation_id=ro.id
         ),0) * interval '1 second' AS effective_due_at,
         now() AS checked_at
@@ -55,7 +55,10 @@ async function processOne(pool) {
     const current = obligation.rows[0];
     if (!current.effective_due_at) throw new Error("Deadline obligation has no effective due time.");
 
-    if (!current.received_at && current.effective_due_at > current.checked_at) {
+    if (current.superseded_at) {
+      // Closed by the candidates' recorded joint agreement (migration 0032): not overdue, no event, no notice.
+      await db.query("UPDATE durable_jobs SET state='completed',finished_at=now(),leased_until=NULL WHERE id=$1",[job.id]);
+    } else if (!current.received_at && current.effective_due_at > current.checked_at) {
       // Due-soon notices (24 h before, windows over 48 h) are queued idempotently in the outbox; nothing is sent here.
       const next = nextDeadlineCheck(current.opened_at,current.effective_due_at,current.checked_at);
       if (next.phase === "due_soon") await enqueueObligationNotifications(db,{obligationId:current.id,phase:"due_soon"});
@@ -75,6 +78,7 @@ async function processOne(pool) {
             obligationType: current.obligation_type,
             obligatedCandidacyId: current.obligated_candidacy_id,
             effectiveDueAt: current.effective_due_at,
+            ...(current.invitation_id ? {invitationId: current.invitation_id} : {}),
           }),current.effective_due_at]);
         await enqueueObligationNotifications(db,{obligationId:current.id,phase:"overdue"});
       }

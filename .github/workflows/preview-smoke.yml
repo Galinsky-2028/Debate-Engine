@@ -1,7 +1,9 @@
 name: Live deployment smoke
 on:
-  # Manual only (owner decision 2026-11-14): pushes to main no longer wake the live service.
+  # No schedule (owner decision 2026-11-14). Runs after a push to main, or by hand.
   workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
   contents: read
 jobs:

@@ -24,3 +24,18 @@ Plan section 5: "Documented platform outages can extend affected clocks ... Exte
 - Admin page: `/workspace/admin/obligations`.
 
 Tested in `tests/sequence-rules.db.integration.mjs` (effective due time moves, duplicate deadline-job execution yields a single overdue event, an extension after an overdue event enqueues and runs a new job, a future extension leaves its job queued, bounds and fulfilled-obligation refusals, immutability) and `tests/deadlines.test.ts` (validation and job keys). Limits: whether an outage actually occurred is an administrator's documented judgement; there is no automatic outage detection, and no external notification is sent.
+
+## Obligations closed by a recorded agreement (migration 0032)
+
+Plan sections 5, 7 and 8 ("superseded by recorded agreement"). When a policy version becomes jointly and currently endorsed with scope `full` (both participants' latest `policy_endorsement_events` row is `accept`), `acceptPolicy` calls `pde_supersede_obligations_by_agreement` in the same transaction. Every still-open (not received) review/reply obligation on that branch gets an append-only `obligation_supersessions` row (`obligation_id` primary key, `policy_version_id`, `superseded_at` set by the database) and one `obligations_superseded_by_agreement` publication event records the version and the count.
+
+- A received obligation is never marked; nothing is deleted. Triggers refuse a supersession of a received obligation, of another branch's obligation, or without a current joint full agreement; supersession rows cannot be updated or deleted; a superseded obligation cannot later be marked received (the fulfilment queries skip it).
+- A joint **partial** agreement does not supersede (it does not resolve the debate).
+- The projection everywhere (public debate SQL, `projectObligation`, the candidate inbox, the admin list, the deadline worker) returns `superseded_by_agreement`, worded "Closed by the candidates' recorded agreement". It is never overdue: when an administrator next runs pending deadline jobs, the worker completes its job without an `obligation_overdue` event or notice, and `due_soon`/`overdue` notices are not queued. Administrators cannot extend it (409).
+- If an endorsement is later withdrawn, the historical supersession stays recorded and no obligation is reopened retroactively. Contributions published afterwards open new obligations normally; they are superseded only if a joint full agreement becomes current again (for example by reaffirmation).
+
+Tested in `tests/obligation-supersession.db.integration.mjs` (partial does not supersede, one endorsement is not enough, received and other-branch obligations untouched, immutability, idempotency, withdrawal and reaffirmation, worker skip with no event or notice while an unrelated obligation still records its overdue event once) and `tests/obligation-closure-and-grants.test.ts`.
+
+## Invitation response clocks (migration 0034)
+
+Provider evidence for a direct invitation now opens a durable reply obligation (branchless, tied to the invitation) when the debate has a reply window; see [INVITATIONS.md](INVITATIONS.md). The worker, notices, outage extensions and projections treat it like any other reply clock.

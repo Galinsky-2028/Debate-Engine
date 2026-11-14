@@ -27,12 +27,13 @@ async function enqueueDeadline(db: PoolClient, obligation: {id: string; due_at: 
 }
 
 /**
- * Keep reply/review clocks in the same transaction as publication. Notices to the obligated candidate's own
+ * Keep reply/review clocks in the same transaction as publication. An obligation closed by a recorded joint agreement
+ * (obligation_supersessions, migration 0032) stays closed and is not re-labelled by a later contribution. Notices to the obligated candidate's own
  * verified destinations are only queued here (idempotently); delivery happens later in the outbox processor.
  */
 export async function recordPublishedContinuationObligations(db: PoolClient, input: PublishedContinuation) {
   await db.query(
-    "UPDATE reply_obligations SET received_at=COALESCE(received_at,$1),processed_at=COALESCE(processed_at,$1) WHERE source_submission_id=$2 AND obligated_candidacy_id=$3 AND obligation_type='reply'",
+    "UPDATE reply_obligations SET received_at=COALESCE(received_at,$1),processed_at=COALESCE(processed_at,$1) WHERE source_submission_id=$2 AND obligated_candidacy_id=$3 AND obligation_type='reply' AND opened_at<=$1 AND NOT EXISTS (SELECT 1 FROM obligation_supersessions s WHERE s.obligation_id=reply_obligations.id)",
     [input.publishedAt, input.parentSubmissionId, input.publishingCandidacyId],
   );
 
@@ -66,7 +67,7 @@ export async function fulfillReviewObligation(
   input: {sourceSubmissionId: string; obligatedCandidacyId: string},
 ) {
   await db.query(
-    "UPDATE reply_obligations SET received_at=COALESCE(received_at,now()),processed_at=COALESCE(processed_at,now()) WHERE source_submission_id=$1 AND obligated_candidacy_id=$2 AND obligation_type='review'",
+    "UPDATE reply_obligations SET received_at=COALESCE(received_at,now()),processed_at=COALESCE(processed_at,now()) WHERE source_submission_id=$1 AND obligated_candidacy_id=$2 AND obligation_type='review' AND NOT EXISTS (SELECT 1 FROM obligation_supersessions s WHERE s.obligation_id=reply_obligations.id)",
     [input.sourceSubmissionId, input.obligatedCandidacyId],
   );
 }

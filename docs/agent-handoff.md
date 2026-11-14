@@ -19,7 +19,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 
 ## Current state (2026-11-14)
 
-- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, 33 migration files from `0001` to `0031` (there is no `0030`; `0003`, `0010` and `0013` each have two files).
+- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, 36 migration files from `0001` to `0034` (there is no `0030`; `0003`, `0010` and `0013` each have two files).
 - Live: https://public-debate-engine.onrender.com (free Render web service, manual deploys from `main`, self-migrating container; `/api/health` reports the deployed commit). Neon project `cool-dawn-42333373`.
 - Uploads and supporting documents need the operator-laptop scanner running.
 - No real candidate debate, position, invitation or agreement has been published by the platform. Fixtures are fictional and test-only.
@@ -32,17 +32,16 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 - Operational acceptance: every gate in `registry/production-acceptance.json` is pending; `npm run release:check` exits 2.
 - Real candidate onboarding: verification standard, real accounts and the candidate's confirmation before any opening, invitation or position.
 - No email provider (`EMAIL_API_URL`/`EMAIL_API_KEY`/`EMAIL_FROM`) and no webhook destinations are configured, so notices and invitations stay "Queued — not sent".
-- Nothing runs automatically (owner decision 2026-11-14): no schedule and no processing after requests. A platform administrator runs pending deadline and outbox jobs with Run pending jobs now on `/workspace/admin/operations` or the manual GitHub workflow; automatic processing can be re-enabled later (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
+- Nothing runs on a schedule (owner decision 2026-11-14). Deliveries run right after the action that queued them; deadline jobs and anything left pending run when a platform administrator presses Run pending jobs now on `/workspace/admin/operations` or starts the manual GitHub workflow (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
 - External human security review is deferred follow-up under the AGENTS.md policy; it is not a release blocker and must not be claimed.
-- Not implemented: obligations superseded by a recorded agreement; `distribute` grants (no route creates or consumes them); playback encodes; a suspension workflow.
+- Not implemented: playback encodes; a suspension workflow. (Obligations superseded by a recorded agreement, `distribute` grants and durable invitation response clocks are implemented: [DEADLINES_AND_NOTIFICATIONS.md](DEADLINES_AND_NOTIFICATIONS.md), [DERIVATIVE_RIGHTS.md](DERIVATIVE_RIGHTS.md), [INVITATIONS.md](INVITATIONS.md).)
 - The unfinished requirement "When a candidate uploads a video…" (below).
 
 ## Next unblocked tasks
 
 1. Add axe checks for a populated debate page, embed and workspace pages ([accessibility-test-plan.md](accessibility-test-plan.md)).
 2. Complete and review `security/e2eesa-inventory.json`, then record a dated AI-assisted `securityReview` entry with evidence. Do not claim external review.
-3. Make distribution refuse a released summary whose edit grants were revoked or that has an active restriction case, with tests.
-4. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
+3. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
 
 ## Blocked on the owner
 

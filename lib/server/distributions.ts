@@ -4,6 +4,7 @@ import {HttpError} from "./http";
 import {labelled, type DeliveryRow} from "./outbox";
 import {enqueueAction, publicOrigin} from "../../packages/delivery/outbox-store.ts";
 import {ARTIFACT_GRANTS_CURRENT_SQL} from "./policy-agreement-sql";
+import {distributePermissionStatus, missingDistributePermissionMessage} from "./distribute-permissions";
 
 async function participant(db: Pick<import("pg").PoolClient, "query">, branchId: string, candidacyId: string, authSubject: string) {
   const r = await db.query<{debate_id: string; title: string; originator_candidacy_id: string; responder_candidacy_id: string; account_id: string}>(
@@ -38,6 +39,9 @@ export async function requestDistribution(input: {branchId: string; candidacyId:
       // uses, or while an exceptional restriction is active on the summary.
       const future = await db.query<{current: boolean}>(ARTIFACT_GRANTS_CURRENT_SQL, [input.artifactId]);
       if (!future.rows[0]?.current) throw new HttpError(409, "A source owner withdrew permission for future uses of this summary; it can no longer be distributed.");
+      // Plan 11.2/12: distribution is a separate permission. Every source owner must currently grant 'distribute'.
+      const missing = missingDistributePermissionMessage(await distributePermissionStatus(db, input.artifactId));
+      if (missing) throw new HttpError(409, missing);
       const restricted = await db.query("SELECT 1 FROM restriction_cases WHERE target_kind='derivative' AND target_id=$1 AND status='active'", [input.artifactId]);
       if (restricted.rowCount) throw new HttpError(451, "This summary is under an exceptional platform restriction and cannot be distributed.");
       subjectKind = "derivative_artifact"; subjectId = input.artifactId; digest = a.rows[0].output_sha256;
@@ -89,7 +93,16 @@ export async function listDistributions(input: {branchId: string; candidacyId: s
      FROM outgoing_actions o JOIN delivery_destinations d ON d.id=o.destination_id
      WHERE o.action_type='distribution' AND o.branch_id=$1 AND o.owner_candidacy_id=$2 ORDER BY o.created_at DESC,o.id LIMIT 200`,
     [input.branchId, input.candidacyId]);
-  return {distributions: rows.rows.map(labelled)};
+  // Per released summary: which source owner's distribution permission is current, missing or withdrawn.
+  const released = await database().query<{id: string}>(
+    "SELECT id FROM derivative_artifacts WHERE branch_id=$1 AND status='released' ORDER BY created_at DESC,id LIMIT 50", [input.branchId]);
+  const summaryPermissions = [];
+  for (const a of released.rows) {
+    const owners = await distributePermissionStatus(database(), a.id);
+    summaryPermissions.push({artifactId: a.id, distributePermissionsCurrent: missingDistributePermissionMessage(owners) === null,
+      owners: owners.map(o => ({ownerName: o.ownerName, state: o.state}))});
+  }
+  return {distributions: rows.rows.map(labelled), summaryPermissions};
 }
 
 /** Public count derives only from provider-accepted or delivered evidence; queued or failed sends are never counted. */

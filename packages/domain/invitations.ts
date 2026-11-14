@@ -17,8 +17,10 @@ export function projectInvitation(input: {
   replyWindowHours: number | null;
   respondedAt: string | null;
   now: string;
+  /** The durable response clock (reply_obligations, migration 0034) incl. outage extensions, when it exists. */
+  clock?: {openedAt: string; effectiveDueAt: string | null} | null;
 }): InvitationProjection {
-  const sentAt = invitedReplyOpenedAt(input.debatePublishedAt, input.providerEvidenceAt);
+  const sentAt = input.clock ? new Date(input.clock.openedAt).toISOString() : invitedReplyOpenedAt(input.debatePublishedAt, input.providerEvidenceAt);
   const respondedAt = input.respondedAt ? new Date(input.respondedAt).toISOString() : null;
   if (input.replyWindowHours !== null && (!Number.isFinite(input.replyWindowHours) || input.replyWindowHours <= 0))
     throw new Error("replyWindowHours must be positive.");
@@ -27,9 +29,13 @@ export function projectInvitation(input: {
     if (respondedAt) return {state: "responded", sentAt: null, responseDueAt: null, respondedAt, label: "Response received " + formatInstant(respondedAt)};
     return {state: "drafted", sentAt: null, responseDueAt: null, respondedAt: null, label: "Invitation drafted — not sent"};
   }
-  const responseDueAt = input.replyWindowHours === null ? null
+  const responseDueAt = input.clock ? (input.clock.effectiveDueAt ? new Date(input.clock.effectiveDueAt).toISOString() : null)
+    : input.replyWindowHours === null ? null
     : new Date(Date.parse(sentAt) + input.replyWindowHours * 3600_000).toISOString();
-  if (respondedAt) return {state: "responded", sentAt, responseDueAt, respondedAt, label: "Response received " + formatInstant(respondedAt)};
+  if (respondedAt) {
+    const timing = !input.clock || !responseDueAt ? "" : Date.parse(respondedAt) <= Date.parse(responseDueAt) ? " (within the response window)" : " (after the response window)";
+    return {state: "responded", sentAt, responseDueAt, respondedAt, label: "Response received " + formatInstant(respondedAt) + timing};
+  }
   if (responseDueAt && Date.parse(input.now) > Date.parse(responseDueAt))
     return {state: "no_response", sentAt, responseDueAt, respondedAt: null, label: "No response received by " + formatInstant(responseDueAt)};
   return {state: "sent", sentAt, responseDueAt, respondedAt: null,

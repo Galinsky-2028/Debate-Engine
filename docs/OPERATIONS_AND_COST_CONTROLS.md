@@ -35,28 +35,26 @@ Unset means "no cap configured" (reported as such); an invalid value fails close
 - Monitors are pull-only; no alerting channel is configured.
 - No spend data from Render/Neon/storage providers is read; budgets are operator-set caps.
 
-## Manual processing (owner decision, 2026-11-14)
+## No scheduled processing (owner decision, 2026-11-14)
 
-Nothing runs automatically. There is no scheduled job, no processing after requests, and no workflow that wakes
-the live service on its own. Queued deadline jobs (overdue events, due-soon and overdue notices) and outbox
-deliveries (notifications, invitations, distributions, email confirmations) wait in the database until an
-administrator processes them:
+Nothing runs on a timer: there is no cron schedule anywhere, so nothing wakes the free Render service on its own and
+eats into the workspace's 750 shared free instance-hours. Processing is event-driven instead:
 
-- **Run pending jobs now** on `/workspace/admin/operations` (one bounded batch of deadline jobs and deliveries), or
-- the **Run pending operations (manual)** GitHub workflow (Actions tab → Run workflow), or
-- `npm run worker:deadlines` / `npm run worker:outbox` from a machine with `DATABASE_URL`.
+- **After an action a person takes** (publishing, inviting, distributing, verifying a destination, retrying a dead
+  letter), a small bounded batch of outbox deliveries runs right after the response is sent. Set
+  `PDE_AUTOMATIC_PROCESSING=off` to stop even this.
+- **Deadline jobs** (overdue events, due-soon and overdue notices) are time-based, so they run only when an
+  administrator presses **Run pending jobs now** on `/workspace/admin/operations`, starts the **Run pending
+  operations (manual)** GitHub workflow, or runs `npm run worker:deadlines` / `npm run worker:outbox`.
 
-Everything stays idempotent, so running a batch twice is harmless. Deadlines are judged on server timestamps, not on
+Everything is idempotent, so running a batch twice is harmless. Deadlines are judged on server timestamps, not on
 when a batch happens to run: a late batch records an overdue event late but never changes whether a reply was on
-time. `/workspace/admin/operations` shows the backlog and the oldest pending item so you can see when a run is due.
+time. `/workspace/admin/operations` shows the backlog and the oldest pending item.
 
-To turn automatic processing back on later: set `PDE_AUTOMATIC_PROCESSING=on` on the Render service (deliveries
-then run right after the request that queued them) and/or add a `schedule:` trigger back to
-`.github/workflows/scheduled-operations.yml`. Keep any schedule coarse (every few hours or less): a free Render
-service sleeps after 15 idle minutes and all free services in the workspace share 750 instance-hours a month.
-
-The other GitHub workflows follow the same rule: the PR-registry sync and the live smoke test are manual-only, and
-the dependency/CodeQL scan no longer has a weekly schedule (it still runs on pushes and pull requests as CI).
+GitHub workflows follow the same rule: no schedules. The PR-registry sync runs when a pull request closes, the live
+smoke test runs after a push to `main`, and CI runs on pushes and pull requests; the weekly CodeQL schedule was
+removed. To add a schedule later, keep it coarse (every few hours or less): a free Render service sleeps after 15
+idle minutes and all free services in the workspace share 750 instance-hours a month.
 
 ### How the manual workflow authenticates
 
