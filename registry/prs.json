@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-14T22:58:36Z",
+  "observedAt": "2026-11-14T23:12:28Z",
   "units": [
     {
       "id": "PDE-01",
@@ -869,6 +869,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5317201553,
+      "number": 92,
+      "title": "Sync specs and handoff with merged features; re-check distribution permissions",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/92",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-14T23:08:31Z",
+      "updatedAt": "2026-11-14T23:12:10Z",
+      "closedAt": "2026-11-14T23:12:09Z",
+      "mergedAt": "2026-11-14T23:12:09Z",
+      "headSha": "3d7f723c998244839b1477181c4a4f7344140bd9",
+      "baseRef": "main",
+      "mergeCommitSha": "70f9de8ac966165d483d4403bda48fbc58054c14"
+    },
     {
       "id": 5317059848,
       "number": 91,
