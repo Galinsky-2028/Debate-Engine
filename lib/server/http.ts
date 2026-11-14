@@ -29,7 +29,7 @@ export function requireSameOrigin(request: NextRequest) {
 export async function parseJson(request: NextRequest): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new HttpError(415, "Expected application/json.");
-  const body = await boundedText(request, 40000);
+  const body = await boundedText(request, 262144);
   try { return JSON.parse(body); } catch { throw new HttpError(400, "Invalid JSON body."); }
 }
 export function record(value: unknown): Record<string, unknown> {
