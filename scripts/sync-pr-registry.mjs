@@ -1,40 +1,48 @@
 #!/usr/bin/env node
 /**
- * Refreshes machine-readable PR evidence from authoritative GitHub REST data.
- * Never changes the separately approved roadmap milestones or acceptance state.
- * Uses only authenticated requests to the repository specified in the roadmap.
+ * Refreshes the dated GitHub observation inside the single canonical plan, registry/prs.json.
+ * It reads no other plan file. It may only: replace `pullRequests` with authoritative REST data,
+ * append a merged PR to a unit's `prs` when the PR title starts with that unit's exact stable ID,
+ * and recompute each unit's `openPullRequests`. Every other document and unit field — acceptance,
+ * acceptanceNote, state, implementation, dependencies, operational gates — is preserved verbatim.
  */
 import {readFile,writeFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {pathToFileURL} from "node:url";
-export function extractUnitIds(title,validIds){
- const match=title.match(/\bPDE-(?:0[1-9]|[1-3]\d|4[0-4])\b/gi)||[];
- return [...new Set(match.map(x=>x.toUpperCase()))].filter(x=>validIds.has(x));
+import {parsePrRegistry,titleWorkUnitIds} from "../registry/pr-contract.mjs";
+const PROTECTED=["id","title","origin","state","implementation","acceptance","acceptanceNote","contributingPrs","priorEvidencePrs","dependsOn","externalDependencies","externalPrerequisites"];
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const ascending=(a,b)=>a-b;
+export function toRecord(repository,p){
+ if(!p||!Number.isSafeInteger(p.number)||p.number<1||typeof p.title!=="string")throw Error("Unexpected GitHub pull request record.");
+ return {id:p.id,number:p.number,title:p.title,url:"https://github.com/"+repository+"/pull/"+p.number,state:p.state,draft:p.draft===true,
+  createdAt:p.created_at,updatedAt:p.updated_at,closedAt:p.closed_at??null,mergedAt:p.merged_at??null,
+  headSha:p.head?.sha??null,baseRef:p.base?.ref??null,mergeCommitSha:p.merge_commit_sha??null};
 }
-export function mergeRegistry(old,roadmap,prs,observedAt){
- if(!roadmap.planVerified||roadmap.milestones.length!==roadmap.plannedPrCount)
-  throw Error("Unverified roadmap or changed plan denominator: refuse to overwrite registry.");
- if(old.repository!==roadmap.repository||!old.planVerified)
-  throw Error("Roadmap repository or plan verification mismatch.");
- const valid=new Set(roadmap.milestones.map(u=>u.id));
- const units=roadmap.milestones.map(m=>{
-  const original=old.units.find(u=>u.id===m.id);
-  const historical=original?.prs||[];
-  const observed=prs.filter(p=>extractUnitIds(p.title,valid).includes(m.id)).map(p=>p.number);
-  return {id:m.id,title:m.title,origin:original?.origin||(m.id>="PDE-31"?"addition":"original"),
-   prs:[...new Set([...historical,...observed])].sort((a,b)=>a-b)};
+export function mergeRegistry(old,githubPullRequests,observedAt){
+ if(!old||old.schemaVersion!==1||old.planVerified!==true||!Array.isArray(old.units)||!old.units.length||old.units.length!==old.plannedPrCount||!Array.isArray(old.pullRequests))
+  throw Error("Unverified plan or changed plan denominator: refuse to overwrite registry.");
+ const pullRequests=githubPullRequests.map(p=>toRecord(old.repository,p)).sort((a,b)=>b.number-a.number);
+ const observed=new Set(pullRequests.map(p=>p.number));
+ // GitHub never deletes pull requests. A shorter listing is partial data, not evidence.
+ const missing=old.pullRequests.filter(p=>!observed.has(p.number)).map(p=>p.number);
+ if(missing.length)throw Error("GitHub listing omits previously recorded pull requests: "+missing.join(", "));
+ const explicit=new Set(old.units.flatMap(u=>[...(u.prs??[]),...(u.contributingPrs??[]),...(u.priorEvidencePrs??[])]));
+ const units=old.units.map(unit=>{
+  const titled=pullRequests.filter(p=>titleWorkUnitIds(p.title).includes(unit.id));
+  // Only merged work becomes a durable mapping, and never a PR a human already mapped anywhere.
+  const additions=titled.filter(p=>p.mergedAt!==null&&!explicit.has(p.number)).map(p=>p.number);
+  const prs=additions.length?[...new Set([...unit.prs,...additions])].sort(ascending):unit.prs;
+  const linked=new Set([...prs,...titled.filter(p=>!explicit.has(p.number)||unit.prs.includes(p.number)).map(p=>p.number)]);
+  const openPullRequests=pullRequests.filter(p=>p.state==="open"&&linked.has(p.number)).map(p=>p.number).sort(ascending);
+  const next={...unit,prs,openPullRequests};
+  for(const key of PROTECTED)if(!same(next[key],unit[key]))throw Error("Protected field "+key+" changed for "+unit.id);
+  return next;
  });
- const pullRequests=prs.map(p=>({
-  id:p.id,number:p.number,title:p.title,url:p.html_url,state:p.state,draft:p.draft,
-  createdAt:p.created_at,updatedAt:p.updated_at,closedAt:p.closed_at,mergedAt:p.merged_at,
-  headSha:p.head.sha,baseRef:p.base.ref,mergeCommitSha:p.merge_commit_sha
- })).sort((a,b)=>b.number-a.number);
- const next={schemaVersion:old.schemaVersion,repository:roadmap.repository,roadmapVersion:roadmap.version,
-  planVerified:roadmap.planVerified,plannedPrCount:roadmap.plannedPrCount,
-  observedAt,units,pullRequests};
- const oldComparable={...old,observedAt:null},newComparable={...next,observedAt:null};
- // Only move observedAt when the authoritative PR data or roadmap mapping changes.
- if(JSON.stringify(oldComparable)===JSON.stringify(newComparable))return {changed:false,registry:old};
+ const next={...old,observedAt,units,pullRequests};
+ // Only move observedAt when the authoritative PR data or an exact-ID mapping changes.
+ if(same({...old,observedAt:null},{...next,observedAt:null}))return {changed:false,registry:old};
+ parsePrRegistry(JSON.stringify(next),old.repository);
  return {changed:true,registry:next};
 }
 export async function listGithubPullRequests({repo,token,fetchImpl=fetch}){
@@ -58,16 +66,16 @@ export async function listGithubPullRequests({repo,token,fetchImpl=fetch}){
 async function main(){
  const token=process.env.GITHUB_TOKEN;
  if(!token)throw Error("Authenticated GITHUB_TOKEN is required.");
- const root=resolve(process.cwd(),"registry");
- const roadmap=JSON.parse(await readFile(resolve(root,"roadmap.json"),"utf8"));
- const prior=JSON.parse(await readFile(resolve(root,"prs.json"),"utf8"));
+ const path=resolve(process.cwd(),"registry","prs.json");
+ const body=await readFile(path,"utf8");
  const repo=process.env.GITHUB_REPOSITORY;
- if(repo!==roadmap.repository)throw Error("Refusing to sync a mismatched GitHub repository.");
+ // The stored registry must already satisfy the shared contract for exactly this repository.
+ const prior=parsePrRegistry(body,repo).document;
  const prs=await listGithubPullRequests({repo,token});
- const result=mergeRegistry(prior,roadmap,prs,new Date().toISOString());
- if(result.changed){await writeFile(resolve(root,"prs.json"),JSON.stringify(result.registry,null,2)+"\n");}
+ const result=mergeRegistry(prior,prs,new Date().toISOString().replace(/\.\d{3}Z$/,"Z"));
+ if(result.changed)await writeFile(path,JSON.stringify(result.registry,null,2)+"\n");
  console.log(result.changed?"Updated machine-readable PR registry from GitHub.":"PR registry already current.");
- console.log(JSON.stringify({repo,observedPullRequests:prs.length,plannedUnits:roadmap.plannedPrCount,changed:result.changed}));
+ console.log(JSON.stringify({repo,observedPullRequests:prs.length,plannedUnits:prior.plannedPrCount,changed:result.changed}));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  main().catch(e=>{console.error(e instanceof Error?e.message:"Unexpected registry sync error.");process.exitCode=1});

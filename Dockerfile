@@ -10,4 +10,5 @@ RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=256
 USER node
 EXPOSE 10000
-CMD ["npm","run","start"]
+# Apply pending additive migrations before serving; a failed migration stops the container so the deploy fails closed.
+CMD ["sh","-c","node scripts/migrate.mjs && exec npm run start"]
