@@ -79,3 +79,23 @@ export function notificationDedupeKey(obligationId: string, phase: "due_soon" | 
   instant(effectiveDueAt, "effectiveDueAt");
   return `obligation:${obligationId}:${phase}:${effectiveDueAt}`;
 }
+
+export const OUTAGE_EXTENSION_MIN_SECONDS = 60;
+export const OUTAGE_EXTENSION_MAX_SECONDS = 30 * 24 * 60 * 60;
+
+/** Validate an administrator's documented outage extension. The reason is published verbatim. */
+export function parseOutageExtension(raw: {seconds: unknown; publicReason: unknown}): {seconds: number; publicReason: string} {
+  const seconds = Number(raw.seconds);
+  if (!Number.isSafeInteger(seconds) || seconds < OUTAGE_EXTENSION_MIN_SECONDS || seconds > OUTAGE_EXTENSION_MAX_SECONDS)
+    throw new Error(`An outage extension must be a whole number of seconds from ${OUTAGE_EXTENSION_MIN_SECONDS} to ${OUTAGE_EXTENSION_MAX_SECONDS}.`);
+  const publicReason = typeof raw.publicReason === "string" ? raw.publicReason.trim() : "";
+  if (publicReason.length < 20 || publicReason.length > 1000)
+    throw new Error("A public outage reason of 20–1000 characters is required.");
+  return {seconds, publicReason};
+}
+
+/** A fresh durable-job key per effective due time, so a completed job for an earlier time never suppresses it. */
+export function deadlineJobKey(obligationId: string, effectiveDueAt: string): string {
+  if (!obligationId) throw new Error("obligationId is required.");
+  return `obligation:${obligationId}:deadline:${new Date(instant(effectiveDueAt, "effectiveDueAt")).toISOString()}`;
+}
