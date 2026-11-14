@@ -1,6 +1,6 @@
 # Public Debate Engine protocol (normative)
 
-This is the normative protocol for the candidate-neutral engine. "MUST" rules are enforced in code unless marked *(planned)*. Requirements and their history are in [the development plan](../docs/DEVELOPMENT_PLAN.md) sections 2–7 and 10–11 and its October 11 expansion; state transitions are in [state-machine.md](state-machine.md); rights in [permission-and-consent-model.md](permission-and-consent-model.md); preservation in [archive-and-restriction-policy.md](archive-and-restriction-policy.md).
+This is the normative protocol for the candidate-neutral engine. "MUST" rules are enforced in code unless marked *(not implemented)*; transitions, errors and covering tests are in the state machine. Requirements and their history are in [the development plan](../docs/DEVELOPMENT_PLAN.md) sections 2–7 and 10–11 and its October 11 expansion; state transitions are in [state-machine.md](state-machine.md); rights in [permission-and-consent-model.md](permission-and-consent-model.md); preservation in [archive-and-restriction-policy.md](archive-and-restriction-policy.md).
 
 ## 1. Two simultaneous views
 
@@ -13,7 +13,7 @@ No candidate, including a debate's originator, can delete, hide, overwrite or de
 
 - **Verified candidate**: a Neon Auth account whose candidacy for one office and election cycle has `verification_status='verified'`. Every candidate action is proven in SQL from the candidacy id *and* the authenticated subject; a client-supplied candidacy id alone is never trusted.
 - **Same-office rule**: only candidacies in the debate's election cycle may contribute (`pde_guard_submission_actor`).
-- **Platform administrator**: an Auth user id listed in `PLATFORM_ADMIN_USER_IDS`. Decides candidacy verification with a public procedural reason. Administration is not debate adjudication and grants no power over debate content.
+- **Platform administrator**: an Auth user id listed in `PLATFORM_ADMIN_USER_IDS`. Decides candidacy verification with a public procedural reason, records documented outage extensions, runs pending jobs and operates restriction cases (only in debates where they own no participating candidacy). Administration is not debate adjudication and grants no power to edit or delete debate content.
 - **Campaign delegates** (`editor`, `publisher`) can be granted and revoked by the candidacy owner. They cannot publish candidate speech, accept agreements or grant media rights in the current implementation.
 - **The public** reads everything published without an account.
 
@@ -23,7 +23,7 @@ The engine never hard-codes a candidate, issue or race; offices and cycles are d
 
 A verified candidate publishes an opening that contains: a title, a plain-language proposition, one original contribution (video, audio or writing), **one to three** distinct questions with an anchor in that contribution (a timestamp, or `char:<offset>` for writing), the permitted media (any nonempty subset of video, audio, writing; video by default), the maximum response duration (1 s–2 h) and an optional reply window (1–720 h).
 
-Publication MUST be a deliberate final confirmation of a private draft (`POST /api/private/drafts/{id}/confirm`) carrying the draft's SHA-256 fingerprint. Archive and qualifying-sequence permissions MUST be explicitly granted in the draft. Rules, questions and permitted media are immutable after publication; a later change requires mutual, prospective acceptance *(planned: [BRANCH_RULE_VERSIONS.md](../docs/BRANCH_RULE_VERSIONS.md))*.
+Publication MUST be a deliberate final confirmation of a private draft (`POST /api/private/drafts/{id}/confirm`) carrying the draft's SHA-256 fingerprint. Archive and qualifying-sequence permissions MUST be explicitly granted in the draft. Questions, permitted media and the published rules are immutable after publication. On a branch, its two participants may change the response limit and reply window only by mutual acceptance of an exact, digest-bound proposal; the new version applies prospectively, each contribution records the `rules_version` in force, earlier contributions keep their version and format status, existing deadlines are not rewritten, and other branches are unaffected. A draft prepared under superseded rules is refused (HTTP 409) rather than published under terms its author did not see (`0023_branch_rule_versions.sql`, `branch-rules.test.ts`, `sequence-rules.db.integration.mjs`; [BRANCH_RULE_VERSIONS.md](../docs/BRANCH_RULE_VERSIONS.md)).
 
 ## 4. Responding on independent branches
 
@@ -64,15 +64,16 @@ Distinct, honestly labelled outcomes:
 
 Only the questioner may assess their own question, only on the immediately following opponent contribution (`pde_guard_assessment`). Allowed judgments: `answered`, `partly_answered`, `not_answered`, `disputed_premise`, each with a reason; only `answered` satisfies reciprocity. A reversal is a new assessment that supersedes the previous one; the latest one counts and the history stays public. The assessed candidate may file public objections (with an optional timestamp). Assessments are attributed participant judgments, never a platform verdict. No AI, moderator or administrator overwrites them.
 
-The qualifying sequence is currently computed on read from the immutable record (`GET /api/debates/{id}/sequence`). Persisted, versioned sequence manifests, whose earlier versions stay inspectable, are *(planned: [BRANCH_RULE_VERSIONS.md](../docs/BRANCH_RULE_VERSIONS.md))*.
+Each time a new exchange unit qualifies, the publishing or assessing transaction appends a versioned, append-only sequence manifest (`qualifying_sequence_manifests`, database-computed SHA-256, pub `qualifying_sequence_published`). A new revision must extend the previous one's exact prefix and is re-validated by a database trigger; a later reversal stays visible in the complete record but does not remove an already published revision. Every revision remains inspectable. `GET /api/debates/{id}/sequence` returns the latest published revision and, separately, the current projection (`0021`, `sequence.test.ts`, `sequence-rules.db.integration.mjs`; [QUALIFYING_SEQUENCE_UI.md](../docs/QUALIFYING_SEQUENCE_UI.md)). The `sequence_versions`/`sequence_entries` tables from `0001` are superseded and unused.
 
 ## 6. Time
 
 - All instants are server UTC; the browser clock is never authoritative.
 - A published continuation that asks questions opens a **reply** obligation for the opponent; one that answers questions opens a **review** obligation for the questioner. Both use the debate's reply window and open at publication time, never when the other side gets around to reviewing.
 - A reply is timely if it is **received** by the effective due time; later platform processing never makes it late (`deadlines.test.ts`).
-- Documented outage adjustments extend the effective due time additively and visibly (`obligation_outage_adjustments`). Creating them through an authorized operator flow is *(planned: [BRANCH_RULE_VERSIONS.md](../docs/BRANCH_RULE_VERSIONS.md))*.
-- An invitation that was never sent does not start a clock (`invitedReplyOpenedAt`). Invitations themselves are *(planned: [INVITATIONS.md](../docs/INVITATIONS.md))*.
+- Documented outage adjustments extend the effective due time additively and visibly. Only a platform administrator can add one (`POST /api/admin/obligations/{id}/outage-adjustments`), with a published reason, only to an unfulfilled obligation with a fixed deadline; a fulfilled obligation's timeliness is never rewritten ([DEADLINES_AND_NOTIFICATIONS.md](../docs/DEADLINES_AND_NOTIFICATIONS.md), `sequence-rules.db.integration.mjs`).
+- An originator may invite a verified same-election candidate. The invitation is a draft until an email provider or webhook has accepted it for sending; only then is it shown as sent, and a "Response due" date runs from max(debate publication, provider acceptance) (`invitedReplyOpenedAt`). An unsent invitation never starts a clock or implies non-response. Invitations do not gate participation ([INVITATIONS.md](../docs/INVITATIONS.md)).
+- Notices (obligation opened, due in 24 h for windows over 48 h, overdue) are queued only to a candidate's own verified destinations, deduplicated per obligation, phase and effective due time, and worded neutrally ([DISSEMINATION_AND_NOTIFICATIONS.md](../docs/DISSEMINATION_AND_NOTIFICATIONS.md)). A joint agreement does not close open obligations *(not implemented)*.
 - Labels are neutral: open, overdue, fulfilled on time, fulfilled late. A timeout never implies concession, defeat or victory. Late replies stay publishable and resume the exchange with lateness recorded.
 
 ## 7. Corrections
@@ -85,12 +86,15 @@ An author may append a permanent, attributed correction or retraction (20–5,00
 - Acceptance MUST name the exact version id and digest. A **joint agreement** exists while both participants' latest endorsement event for the *same* version is `accept`. A different version never inherits acceptance.
 - A participant may withdraw current support. Withdrawal is a new public event; the historical acceptance is kept (`policy_endorsement_events`, `policy-endorsement.db.integration.mjs`).
 - Agreement on one branch never affects another branch.
-- Scoped **partial agreements** that leave named questions unresolved are *(planned; tracked under PDE-19)*.
+- A proposal has a scope. Both participants currently endorsing the same `full` version is a **joint agreement** and the only state that resolves the debate. Both endorsing the same `partial` version is reported as **partial agreement only**; it must state its remaining disagreements, and the questions it does not address stay visible. Scope, addressed questions, notes and attachment digests are part of the digest, so changing any of them is a new version (`0026_scoped_policy_proposals.sql`, `policy-scope.test.ts`, `policy-scope.db.integration.mjs`).
+- Press kits, `/press` and the feed report only current joint endorsement and label withdrawn and partial agreements as such.
 - The engine reports agreement; it never certifies that a policy is objectively best.
 
 ## 9. Summaries and derivative media
 
-Derivative media (concise master, 5 min, 3 min, 60 s, 30 s) are built from an editorial manifest of exact source clips. Rendering requires a clip-scoped edit permission from **every** source owner; release requires both participants' approval of the exact rendered SHA-256 and a jointly accepted policy. Withholding approval never affects the policy agreement or the original record. Details: [permission-and-consent-model.md](permission-and-consent-model.md). External dissemination is *(planned: [DISSEMINATION_AND_NOTIFICATIONS.md](../docs/DISSEMINATION_AND_NOTIFICATIONS.md))*.
+Derivative media (concise master, 5 min, 3 min, 60 s, 30 s) are built from an editorial manifest of exact source clips. Rendering requires a clip-scoped edit permission from **every** source owner; release requires both participants' approval of the exact rendered SHA-256 and a jointly accepted policy. Withholding approval never affects the policy agreement or the original record. A source owner may withdraw an edit permission for future uses; rendering, approval and release of anything not yet released then fail closed, while an already released summary stays public with a dated notice. Details: [permission-and-consent-model.md](permission-and-consent-model.md).
+
+A branch participant may send a released summary or a currently jointly endorsed policy to their own verified destinations through the outbox (public URLs and digests only). States are reported honestly: queued, accepted by provider (email; not proof of delivery), delivered (webhook 2xx), failed, dead letter. No email provider is configured in the current deployment ([DISSEMINATION_AND_NOTIFICATIONS.md](../docs/DISSEMINATION_AND_NOTIFICATIONS.md)).
 
 ## 10. Private Debate Assistant
 
@@ -98,7 +102,7 @@ Optional, private, opt-in analysis of the author's own draft (preliminary) and o
 
 ## 11. Governance boundaries
 
-The originator's power to assess their own questions never includes deleting others' records, impersonating approvals, operating platform restrictions or editing others' media. Exceptional restrictions for security, safety or legal reasons belong to an independent, auditable process: [archive-and-restriction-policy.md](archive-and-restriction-policy.md).
+The originator's power to assess their own questions never includes deleting others' records, impersonating approvals, operating platform restrictions or editing others' media. Exceptional restrictions for security, safety or legal reasons belong to a separate, auditable process operated by platform administrators who are not participants in the debate; the restricted item keeps its place, counts and sequence position, and its contributor can appeal: [archive-and-restriction-policy.md](archive-and-restriction-policy.md). Withdrawal from an election or account closure ends future actions but never removes or re-attributes published contributions.
 
 ## 12. Explicitly unresolved
 

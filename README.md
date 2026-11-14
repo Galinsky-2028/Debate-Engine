@@ -20,7 +20,7 @@ Source: [`Galinsky-2028/Debate-Engine`](https://github.com/Galinsky-2028/Debate-
 
 **First-upload deployment is live:** https://public-debate-engine.onrender.com. Sign in, register and verify your candidacy, and connect the platform operator's laptop scanner before uploading. Free accounts prepare originals locally in a browser; paid hosted preparation is staged with billing inactive. The current original-file limit is 60 MiB. See [setup and verification evidence](docs/FIRST_UPLOAD_DEPLOYMENT.md).
 
-Full debate-lifecycle operational acceptance remains pending. No candidate positions, invitations, endorsements or policy agreements were fabricated to populate the deployment. Passing CI is separate from operational acceptance.
+As of 2026-11-14 the source also implements persisted qualifying-sequence revisions, branch rule versions, partial agreements, permission revocation, restrictions and appeals, account closure, verified notification/distribution destinations, invitations and budgets ([current status](docs/CURRENT_STATUS_AND_HANDOFF.md)); no email provider or worker is configured. Full debate-lifecycle operational acceptance remains pending. No candidate positions, invitations, endorsements or policy agreements were fabricated to populate the deployment. Passing CI is separate from operational acceptance.
 
 ## Local development
 

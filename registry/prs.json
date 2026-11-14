@@ -138,7 +138,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Verified candidate workflow, decision reasons and independent appeals in source. Real human verification policy missing.",
+      "acceptanceNote": "Verified candidate workflow, decision reasons and appeals in source; direct invitations (migration 0029) are drafts until provider evidence shows them sent, delivered only to the invitee's own verified destinations. Pending: published human verification standard, real candidate verification, configured email provider and a real invitation sent with the candidate's confirmation.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -157,7 +157,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Core reciprocal rules exist, but explicit immutable rule-version negotiations and terminal-turn protocol are incomplete.",
+      "acceptanceNote": "Core reciprocal rules plus per-branch rule versions (migration 0023): digest-bound mutual acceptance, prospective application, rules_version recorded on every contribution, stale drafts refused; covered by branch-rules.test.ts and sequence-rules.db.integration.mjs. Pending: browser end-to-end test of the rule UI and real-candidate operational acceptance.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -291,7 +291,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Qualifying public sequence projection works; materialized historical manifests still missing.",
+      "acceptanceNote": "Qualifying sequence projection plus append-only, database-validated sequence manifests (migration 0021) written in the publishing/assessment transaction; reversals cannot remove a published revision. Pending: legacy-branch backfill decision and real multi-round operational acceptance.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -310,7 +310,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Database-backed obligations and deadline worker source implemented; no external notification adapter deployed.",
+      "acceptanceNote": "Database-backed obligations, deadline worker, administrator outage extensions with public reasons, and deduplicated neutral notices (opened, due soon, overdue) queued to verified destinations through the outbox. Pending: an email provider and webhook destinations are not configured, no always-on or scheduled worker runs (admins run batches from /workspace/admin/operations), and no real notification has been delivered.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -405,7 +405,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Hash-bound, versioned, joint policy acceptance implemented; scoped partial agreements and withdrawals pending.",
+      "acceptanceNote": "Hash-bound joint acceptance, endorsement withdrawal, and scoped full/partial proposals with addressed questions, remaining disagreements and attachment digests (migration 0026); press kit, /press and feed report only current joint endorsement. Pending: stored jointly-preferred affirmation text, candidate browser acceptance and external human review.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -424,7 +424,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Original-owner clip permission and exact rendered-file approvals implemented; revocation and full consent acceptance pending.",
+      "acceptanceNote": "Original-owner clip permissions, exact rendered-file approvals, and prospective revocation of optional edit grants (migration 0027) that fails rendering, approval and release closed while released summaries stay public with a notice. Pending: distribute grants are neither created nor consumed by any path; real two-owner consent acceptance.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -481,7 +481,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Passive RSS only; no externally authorized email/social provider or delivery evidence.",
+      "acceptanceNote": "Verified webhook/email destinations, signed SSRF-guarded webhooks, an honest per-destination outbox with retries and dead letters, and participant-requested distribution of released summaries and jointly endorsed policies (migration 0028), alongside RSS. Pending: no email provider or real destinations configured, no production delivery evidence, externalDistribution gate pending.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -520,7 +520,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Negative SQL authorization tests and source integrity rules; external E2EESA/security audit missing.",
+      "acceptanceNote": "Negative SQL authorization tests, source integrity rules and a dated AI-assisted source security review (docs/SECURITY_REVIEW_2026-11-14.md) whose six findings were fixed. Not an independent audit: reviewed E2EESA inventory, securityReview gate evidence and external human review (deferred follow-up) remain pending.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -543,7 +543,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Read-only checksum audit and immutable SQL constraints; offsite backup/recovery and safety restriction process missing.",
+      "acceptanceNote": "Read-only checksum audit, immutable SQL constraints, restore rehearsals, exceptional restrictions with appeals (migration 0024), account closure and final candidacy withdrawal (migration 0025) that never remove published records. Pending: published restriction policy, a second administrator for independent decisions, route tests with real sessions, and independent production backup and restore.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -583,7 +583,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Visual/mobile and WCAG/media manual acceptance not performed.",
+      "acceptanceNote": "Automated axe checks plus operator-set storage and render budgets that refuse new work honestly without deleting anything. Visual/mobile and WCAG/media manual acceptance, load tests and observed budget operation not performed.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -600,7 +600,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Only Render preview and Neon development resources wired. Production deployment not approved or completed.",
+      "acceptanceNote": "Free Render web service and Neon project wired; operations monitors, admin-run job batches and dead-letter requeue exist in source. Pending: hosted or scheduled worker, alerting, configured notification provider, rollback rehearsal and approved production acceptance.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
@@ -812,7 +812,7 @@
       "implementation": "partial",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "Approved 2026-10-11; acceptance pending",
+      "acceptanceNote": "Approved 2026-10-11. Private drafts and reports are owner-scoped and erasable; account closure now erases private drafts and reports while published records remain. Pending: retention schedule review and operational acceptance.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []
