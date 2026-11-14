@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {database} from "../../lib/server/db";
+import DistributionCount from "./distribution-count";
 export const dynamic="force-dynamic";
 type Release={branch_id:string;debate_id:string;title:string;originator:string;contender:string;sha256:string;policy_version_id:string;agreed_at:string;};
 async function releases(){
@@ -12,6 +13,6 @@ export default async function PressPage(){
  return <div className="interior-page"><p className="eyebrow dark">PUBLIC DEBATE / MEDIA LIBRARY</p><h1>Agreements<br/><em>on the record.</em></h1>
  <p className="interior-lead">When opposing candidates jointly accept a policy, their exact agreement and the complete original public debate remain accessible to everyone. Download a verifiable press package, with approved short videos linked where available.</p>
  {!available?<p role="status">The press archive is currently unavailable.</p>:items.length===0?<section className="empty-record"><div><h2>No joint agreements have been published yet.</h2><p>This section will display agreements only after both participants have approved the same policy.</p></div></section>:
- <div className="debate-grid">{items.map(x=><article className="debate-card" key={x.branch_id}><p className="small-label">MUTUALLY ACCEPTED POLICY</p><h2>{x.title}</h2><p>{x.originator} and {x.contender}</p><div className="press-links"><Link className="inline-arrow" href={"/debates/"+x.debate_id}>Full public record ↗</Link><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=zip"}>Download evidence package ↗</a><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=json"}>Machine-readable manifest ↗</a></div></article>)}</div>}
+ <div className="debate-grid">{items.map(x=><article className="debate-card" key={x.branch_id}><p className="small-label">MUTUALLY ACCEPTED POLICY</p><h2>{x.title}</h2><p>{x.originator} and {x.contender}</p><DistributionCount branchId={x.branch_id}/><div className="press-links"><Link className="inline-arrow" href={"/debates/"+x.debate_id}>Full public record ↗</Link><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=zip"}>Download evidence package ↗</a><a className="inline-arrow" href={"/api/branches/"+x.branch_id+"/press-kit?format=json"}>Machine-readable manifest ↗</a></div></article>)}</div>}
  </div>;
 }

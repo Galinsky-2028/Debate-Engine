@@ -1,6 +1,8 @@
 import "server-only";
 import {transaction} from "./db";
 import {HttpError} from "./http";
+import {requireRenderBudget} from "./budget";
+import {manifestSeconds} from "../../packages/domain/budget.ts";
 
 async function branchMember(db:import("pg").PoolClient,branchId:string,candidateId:string,subject:string){
  const r=await db.query<{originator_candidacy_id:string;responder_candidacy_id:string;debate_id:string}>(
@@ -26,6 +28,8 @@ export async function enqueueRender(input:{branchId:string;artifactId:string;can
     [clip.mediaAssetId,input.artifactId,clip.startSeconds,clip.endSeconds]);
    if(!grant.rowCount)throw new HttpError(409,"All original-video owners must grant clip-scoped editing rights before rendering.");
   }
+  // Optional derivative work pauses when the daily processing budget is used up; originals are never touched.
+  await requireRenderBudget(db,manifestSeconds(clips),input.artifactId);
   const job=await db.query<{id:string}>(
    "INSERT INTO durable_jobs(job_type,dedupe_key,arguments) VALUES('render_debate_summary',$1,$2::jsonb) ON CONFLICT(job_type,dedupe_key) DO UPDATE SET state='queued',available_at=now(),attempt_count=0,last_error=NULL,leased_until=NULL WHERE durable_jobs.state IN('queued','failed') RETURNING id",
    [input.artifactId,JSON.stringify({artifactId:input.artifactId})]);

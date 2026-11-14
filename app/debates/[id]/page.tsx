@@ -6,6 +6,7 @@ import PolicyWorkspace from "./policy-workspace";
 import SupportingDocuments from "./supporting-documents";
 import QualifyingSequence from "./qualifying-sequence";
 import CorrectionTools from "./correction-tools";
+import InvitationStatus from "./invitation-status";
 import { publicDocuments } from "../../../lib/server/documents";
 import Link from "next/link";
 import {notFound} from "next/navigation";
@@ -29,6 +30,7 @@ export default async function DebateDetail({params}:{params:Promise<{id:string}>
      <PublishedContribution submission={opening} preload="metadata"/>
      <h3>Questions to competing candidates</h3><ol>{questions.filter(q=>q.submission_id===opening.id).map(q=><li key={q.id}>{q.question_text} <span className="small-label">({(q.written_anchor||Math.round(Number(q.video_timestamp_seconds))+"s")})</span></li>)}</ol>
    </section>}
+   <InvitationStatus debateId={id} originatorId={d.originator_candidacy_id}/>
    <QualifyingSequence data={{originatorId:d.originator_candidacy_id,branches,submissions,questions,answers,assessments}}/>
    <div className="two-record-views"><article><h2>Complete public record</h2><p>Every published video, audio recording, or written speech, including nonqualifying and disputed contributions.</p></article><article><h2>Qualifying sequence</h2><p>Only reciprocal exchanges satisfying the review protocol. Pending obligations remain visible without implying that anyone conceded.</p></article></div>
    <section className="record-section-list"><h2>Published contributions</h2>

@@ -6,6 +6,7 @@ import {examineVideo} from "../../../../lib/server/video";
 import {examineAudio} from "../../../../lib/server/audio";
 import {scanOriginalBeforeValidation,requireScannerPreflight} from "../../../../lib/server/malware";
 import {storeOriginal} from "../../../../lib/server/storage";
+import {requireStorageBudget} from "../../../../lib/server/budget";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const MAX_REQUEST=63*1024*1024;
 export async function POST(request:NextRequest){
@@ -22,6 +23,7 @@ export async function POST(request:NextRequest){
   if(file.size>60*1024*1024)throw new HttpError(413,"Maximum upload is 60 MiB.");
   const owned=await database().query("SELECT 1 FROM candidacies c JOIN accounts a ON a.id=c.account_id WHERE c.id=$1 AND c.verification_status='verified' AND a.identity_provider='neon-auth' AND a.external_subject=$2",[cand,user.id]);
   if(!owned.rowCount)throw new HttpError(403,"Only a verified candidate may upload.");
+  await requireStorageBudget(file.size);
   const data=Buffer.from(await file.arrayBuffer());
   const scanner=await scanOriginalBeforeValidation(data);
   const info=modality==="audio"?examineAudio(data,file.type):examineVideo(data,file.type);
