@@ -32,7 +32,7 @@ export async function completeScan(input:{id:string;sha256:string;leaseToken:str
 }
 export async function scanOnLaptop(bytes:Buffer,storageKey:string){
  const digest=createHash('sha256').update(bytes).digest('hex');
- await database().query("INSERT INTO media_scan_jobs(original_sha256,storage_key,size_bytes) VALUES($1,$2,$3) ON CONFLICT(original_sha256) DO NOTHING",[digest,storageKey,bytes.length]);
+ await database().query("INSERT INTO media_scan_jobs(original_sha256,storage_key,size_bytes) VALUES($1,$2,$3) ON CONFLICT(original_sha256) DO UPDATE SET storage_key=EXCLUDED.storage_key,size_bytes=EXCLUDED.size_bytes,created_at=now(),lease_token=NULL,lease_expires_at=NULL WHERE media_scan_jobs.status='pending' AND media_scan_jobs.created_at<=now()-interval '24 hours'",[digest,storageKey,bytes.length]);
  for(let attempt=0;attempt<20;attempt++){
   const result=await database().query<{status:string}>("SELECT status FROM media_scan_jobs WHERE original_sha256=$1",[digest]);
   if(result.rows[0]?.status==='clean')return {scanner:'clamav' as const,verdict:'clean' as const};

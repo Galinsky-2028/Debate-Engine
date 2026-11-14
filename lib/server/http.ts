@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser, isPlatformAdmin } from "../auth/server";
 import { database } from "./db";
 import {isTrustedMutationOrigin} from "../../packages/domain/request-origin";
+import {boundedText} from "./request-body";
 
 export class HttpError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
@@ -28,8 +29,7 @@ export function requireSameOrigin(request: NextRequest) {
 export async function parseJson(request: NextRequest): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new HttpError(415, "Expected application/json.");
-  const body = await request.text();
-  if (body.length > 40000) throw new HttpError(413, "Request is too large.");
+  const body = await boundedText(request, 40000);
   try { return JSON.parse(body); } catch { throw new HttpError(400, "Invalid JSON body."); }
 }
 export function record(value: unknown): Record<string, unknown> {
