@@ -63,12 +63,15 @@ async function processOne(pool) {
           INSERT INTO publication_events(debate_id,branch_id,kind,object_id,payload)
           SELECT $1,$2,'obligation_overdue',$3,$4::jsonb
           WHERE NOT EXISTS (
+            -- One overdue event per effective due time: a duplicate or retried job never repeats it,
+            -- while a deadline missed again after a documented outage extension is recorded again.
             SELECT 1 FROM publication_events WHERE kind='obligation_overdue' AND object_id=$3
+              AND (payload->>'effectiveDueAt')::timestamptz=$5::timestamptz
           )`, [current.debate_id,current.branch_id,current.id,JSON.stringify({
             obligationType: current.obligation_type,
             obligatedCandidacyId: current.obligated_candidacy_id,
             effectiveDueAt: current.effective_due_at,
-          })]);
+          }),current.effective_due_at]);
       }
       await db.query("UPDATE durable_jobs SET state='completed',finished_at=now(),leased_until=NULL WHERE id=$1",[job.id]);
     }

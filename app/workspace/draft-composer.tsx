@@ -7,7 +7,7 @@ type Mode="video"|"audio"|"writing";
 type Candidate={id:string;public_name:string;office_title:string;election_id:string;verification_status:string};
 type Contribution={id:string;candidate_name:string;kind:string;candidacy_id:string;branch_id:string|null;parent_submission_id:string|null};
 type Question={id:string;submission_id:string;question_text:string};
-type PublicDebate={debate:{title:string;election_id:string;originator_candidacy_id:string;allowed_modalities:Mode[];max_response_seconds:number;reply_window_hours:number|null};submissions:Contribution[];questions:Question[];branches:Array<{id:string;responder_candidacy_id:string}>};
+type PublicDebate={debate:{title:string;election_id:string;originator_candidacy_id:string;allowed_modalities:Mode[];max_response_seconds:number;reply_window_hours:number|null};submissions:Contribution[];questions:Question[];branches:Array<{id:string;responder_candidacy_id:string;rules_version?:number;max_response_seconds?:number;reply_window_hours?:number|null}>};
 type Draft={draftId:string;sha256:string;status:string};
 const options:Mode[]=["video","audio","writing"];
 export default function DraftComposer({kind,debateId}:{kind:"opening"|"response";debateId?:string}){
@@ -56,6 +56,9 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   });
  },[record,candidateId]);
  const pendingQuestions=(record?.questions||[]).filter(q=>q.submission_id===parentId);
+ // A first response opens a new branch under version 1 (the debate's original rules).
+ const selectedBranch=record?.branches.find(b=>b.id===record.submissions.find(s=>s.id===parentId)?.branch_id);
+ const branchRules={version:selectedBranch?.rules_version||1,seconds:selectedBranch?.max_response_seconds??record?.debate.max_response_seconds,hours:selectedBranch?selectedBranch.reply_window_hours:record?.debate.reply_window_hours};
  const positionLabel=mode==="writing"?"Character offset within your written speech":"Timestamp in your original (seconds)";
  const updatedQuestions=kind==="opening"?questions.map(q=>({text:q.text,[mode==="writing"?"characterOffset":"timestamp"]:Number(q.position)})):
   myQuestion.trim()?[{text:myQuestion.trim(),[mode==="writing"?"characterOffset":"timestamp"]:Number(myQuestionPosition)}]:[];
@@ -63,7 +66,7 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
   return {candidacyId:candidateId,modality:mode,mediaAssetId:mode==="writing"?null:sourceId,writtenContent:mode==="writing"?speech:null,
    transcriptText:mode==="writing"?null:transcript,questions:updatedQuestions,archiveConsent,sequenceConsent,
    ...(kind==="opening"?{title,proposition,allowedModalities:enabled,maxResponseSeconds:Number(duration),replyWindowHours:Number(windowHours)}:
-    {answers:pendingQuestions.filter(q=>answers[q.id]!==undefined&&answers[q.id]!=="").map(q=>({questionId:q.id,[mode==="writing"?"characterOffset":"timestamp"]:Number(answers[q.id])}))})};
+    {rulesVersion:branchRules.version,answers:pendingQuestions.filter(q=>answers[q.id]!==undefined&&answers[q.id]!=="").map(q=>({questionId:q.id,[mode==="writing"?"characterOffset":"timestamp"]:Number(answers[q.id])}))})};
  }
  async function upload(){
   if(!file||!candidateId)throw Error("Select a verified candidate and original media file.");
@@ -204,7 +207,7 @@ export default function DraftComposer({kind,debateId}:{kind:"opening"|"response"
    </>:<><label>Opponent's contribution to answer<select required value={parentId} onChange={e=>{setParentId(e.target.value);setAnswers({});setDraft(null);}}>
     <option value="">Select prior contribution</option>{parents.map(p=><option key={p.id} value={p.id}>{p.candidate_name} — {p.kind}</option>)}
    </select></label>
-   <p>Reciprocal audio/video limit: {record?.debate.max_response_seconds||"—"} seconds. Writing uses the stated 150-word-per-minute equivalent. All published replies remain part of the public record even if footnoted.</p></>}
+   <p>Branch rules version {branchRules.version}. Reciprocal audio/video limit: {branchRules.seconds||"—"} seconds. Reply window: {branchRules.hours==null?"no fixed deadline":branchRules.hours+" hours"}. If the rules change before you publish, you will be asked to review them and prepare a new draft. Writing uses the stated 150-word-per-minute equivalent. All published replies remain part of the public record even if footnoted.</p></>}
    <label>Your submission medium<select value={mode} onChange={e=>{setMode(e.target.value as Mode);setFile(null);setMediaId("");setDraft(null);}}>
     {enabled.map(opt=><option key={opt} value={opt}>{opt[0].toUpperCase()+opt.slice(1)}</option>)}
    </select></label>

@@ -5,9 +5,8 @@ import { database } from "./db";
 import {isTrustedMutationOrigin} from "../../packages/domain/request-origin";
 import {boundedText} from "./request-body";
 
-export class HttpError extends Error {
-  constructor(public readonly status: number, message: string) { super(message); }
-}
+import {HttpError} from "./http-error";
+export {HttpError};
 export function jsonError(error: unknown) {
   if (error instanceof HttpError) return NextResponse.json({ error: error.message }, {status: error.status});
   if (error instanceof Error && error.message === "DATABASE_UNAVAILABLE")
