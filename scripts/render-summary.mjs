@@ -59,9 +59,9 @@ async function validateJob(artifactId){
   const source=r.rows[0];
   if(!allowed.has(source.owner_candidacy_id)||clip.endSeconds>Number(source.duration_seconds))throw Error("Unauthorized source or invalid bounds");
   // Must be explicitly granted by the ORIGINAL OWNER for this exact artifact/range.
-  const permission=await db.query("SELECT 1 FROM media_permissions WHERE media_asset_id=$1 AND candidate_id=$2 AND permission='edit' AND (scope->>'artifactId')=$3 AND (scope->>'clipStart')::numeric<=$4 AND (scope->>'clipEnd')::numeric>=$5 LIMIT 1",
+  const permission=await db.query("SELECT 1 FROM media_permissions p WHERE p.media_asset_id=$1 AND p.candidate_id=$2 AND p.permission='edit' AND (p.scope->>'artifactId')=$3 AND (p.scope->>'clipStart')::numeric<=$4 AND (p.scope->>'clipEnd')::numeric>=$5 AND NOT EXISTS(SELECT 1 FROM media_permission_revocations r WHERE r.permission_id=p.id) LIMIT 1",
    [clip.mediaAssetId,source.owner_candidacy_id,artifactId,clip.startSeconds,clip.endSeconds]);
-  if(!permission.rowCount)throw Error("Original owner has not approved this exact clip");
+  if(!permission.rowCount)throw Error("Original owner has not approved this exact clip, or withdrew that permission");
   sources.set(clip.mediaAssetId,source);
  }
  if(sources.size>MAX_SOURCE_FILES)throw Error("Maximum number of distinct original source files exceeded.");

@@ -1,7 +1,15 @@
 import {NextRequest,NextResponse} from "next/server";
 import {requireIdentity,requireSameOrigin,record,parseJson,field,uuid,jsonError,HttpError} from "../../../../../lib/server/http";
 import {grantEditPermission} from "../../../../../lib/server/derivative-rights";
+import {ownMediaPermissions} from "../../../../../lib/server/media-permission-revocation";
 export const runtime="nodejs";export const dynamic="force-dynamic";
+export async function GET(_request:NextRequest,{params}:{params:Promise<{id:string}>}){
+ try{
+  const user=await requireIdentity(true);
+  const result=await ownMediaPermissions({mediaId:uuid((await params).id,"media ID"),authSubject:user.id});
+  return NextResponse.json(result,{headers:{"Cache-Control":"private,no-store"}});
+ }catch(e){return jsonError(e);}
+}
 export async function POST(request:NextRequest,{params}:{params:Promise<{id:string}>}){
  try{
   requireSameOrigin(request);const user=await requireIdentity(true);

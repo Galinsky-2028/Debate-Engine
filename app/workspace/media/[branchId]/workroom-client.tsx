@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {futureUseNotice} from "../../../../packages/domain/policy-view";
 import {useCallback,useEffect,useMemo,useState,type FormEvent} from "react";
 type Candidate={id:string;public_name:string;verification_status:string;election_id:string};
 type Source={id:string;media_asset_id:string;candidacy_id:string;candidate_name:string;duration_seconds:string;branch_id:string|null;kind:string};
@@ -7,9 +8,10 @@ type Segment={mediaAssetId:string;startSeconds:number;endSeconds:number};
 type Artifact={id:string;status:string;output_sha256:string;manifest_sha256:string;
  source_manifest:{clips:Segment[];outputKind:string;releaseTitle:string};
  rendered_at:string|null;duration_seconds:string|null;has_file:boolean};
-type Grant={artifact_id:string;media_asset_id:string;candidate_id:string;scope:{artifactId:string;clipStart:number;clipEnd:number}};
+type Grant={artifact_id:string;permission_id:string;media_asset_id:string;candidate_id:string;granted_at:string;revoked_at:string|null;scope:{artifactId:string;clipStart:number;clipEnd:number}};
 type Directory={branch:{debate_id:string;originator_candidacy_id:string;responder_candidacy_id:string};
- participantId:string|null;artifacts:Artifact[];ownerConsentGrants:Grant[];candidateOutputApprovals:Array<{artifact_id:string;candidacy_id:string}>};
+ participantId:string|null;artifacts:Artifact[];ownerConsentGrants:Grant[];candidateOutputApprovals:Array<{artifact_id:string;candidacy_id:string}>;
+ futureUseWithdrawals?:Array<{artifact_id:string;owner_name:string;revoked_at:string}>};
 const kindLabels:{[key:string]:string}={master:"Faithful concise master (20 minutes max)",five_minutes:"Five-minute summary",three_minutes:"Three-minute summary",one_minute:"One-minute summary",thirty_seconds:"Thirty-second summary"};
 const maxTime:{[key:string]:number}={master:1200,five_minutes:300,three_minutes:180,one_minute:60,thirty_seconds:30};
 export default function MediaWorkroom({branchId}:{branchId:string}){
@@ -21,6 +23,7 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
  const[kind,setKind]=useState("five_minutes");
  const[clips,setClips]=useState<Segment[]>([{mediaAssetId:"",startSeconds:0,endSeconds:30}]);
  const[confirmation,setConfirmation]=useState<Record<string,boolean>>({});
+ const[revoking,setRevoking]=useState<string|null>(null),[reason,setReason]=useState("");
  const[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState("");
  const refresh=useCallback(async()=>{
   const [d,a]=await Promise.all([
@@ -75,7 +78,20 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
  }
  function hasGrant(artifact:Artifact,clip:Segment){
   const video=available.get(clip.mediaAssetId);
-  return Boolean(video&&info?.ownerConsentGrants.some(g=>g.artifact_id===artifact.id&&g.media_asset_id===clip.mediaAssetId&&g.candidate_id===video.candidacy_id&&g.scope.clipStart<=clip.startSeconds&&g.scope.clipEnd>=clip.endSeconds));
+  return Boolean(video&&clipGrants(artifact,clip).some(g=>!g.revoked_at&&g.candidate_id===video.candidacy_id));
+ }
+ function clipGrants(artifact:Artifact,clip:Segment){
+  return (info?.ownerConsentGrants||[]).filter(g=>g.artifact_id===artifact.id&&g.media_asset_id===clip.mediaAssetId&&g.scope.clipStart<=clip.startSeconds&&g.scope.clipEnd>=clip.endSeconds);
+ }
+ async function revoke(artifact:Artifact,g:Grant){
+  if(revoking!==g.permission_id){setRevoking(g.permission_id);setReason("");return;}
+  await act(async()=>{
+   await send("/api/media/"+g.media_asset_id+"/edit-permissions/"+g.permission_id+"/revoke",{reason:reason.trim()||null});
+   setRevoking(null);
+   return artifact.status==="released"
+    ?"Permission for future uses withdrawn. The already released summary stays public with a dated notice; copies already distributed cannot be recalled."
+    :"Permission withdrawn. This summary can no longer be rendered, approved or released with that excerpt.";
+  });
  }
  async function queue(artifact:Artifact){
   await act(async()=>{
@@ -136,7 +152,15 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
      {a.source_manifest.clips.map((clip,i)=>{
       const source=available.get(clip.mediaAssetId),granted=hasGrant(a,clip);
       return <div className="workroom-clip" key={i}>
-       <p>{source?.candidate_name||"Source"} · {clip.startSeconds}s–{clip.endSeconds}s · {granted?"Editing consent recorded":"Editing consent still required"}</p>
+       <p>{source?.candidate_name||"Source"} · {clip.startSeconds}s–{clip.endSeconds}s · {granted?"Editing consent recorded":clipGrants(a,clip).some(g=>g.revoked_at)?"Editing consent withdrawn — no current permission":"Editing consent still required"}</p>
+       {clipGrants(a,clip).map(g=><div key={g.permission_id}>
+        <p className="small-label">Grant of {new Date(g.granted_at).toLocaleDateString("en-US")} · {g.revoked_at?"WITHDRAWN on "+new Date(g.revoked_at).toLocaleDateString("en-US"):"current"}</p>
+        {!g.revoked_at&&g.candidate_id===candidateId&&<>
+         {revoking===g.permission_id&&<label>Optional reason (kept with your account, not published)<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
+         <button disabled={busy} onClick={()=>revoke(a,g)}>{revoking===g.permission_id?"Confirm: withdraw permission for future uses":"Withdraw my editing permission"}</button>
+         {revoking===g.permission_id&&<p>{a.status==="released"?"This summary is already released and will stay public with a dated note. Copies already distributed elsewhere cannot be recalled.":"Rendering, approval and release of this summary will be blocked."}</p>}
+        </>}
+       </div>)}
        {a.status==="draft"&&!granted&&source?.candidacy_id===candidateId&&<button disabled={busy} onClick={()=>grant(a,clip)}>Grant editing permission for exactly this clip</button>}
       </div>;
      })}
@@ -148,6 +172,7 @@ export default function MediaWorkroom({branchId}:{branchId:string}){
       <button disabled={busy||!confirmation[a.id]||info.candidateOutputApprovals.some(v=>v.artifact_id===a.id&&v.candidacy_id===candidateId)} onClick={()=>approve(a)}>Approve exact video bytes ↗</button>
      </>}
      {a.status==="approved"&&<button disabled={busy} onClick={()=>release(a)}>Release jointly approved summary ↗</button>}
+     {a.status==="released"&&(info.futureUseWithdrawals||[]).filter(w=>w.artifact_id===a.id).map(w=><p className="form-alert" key={w.owner_name}>{futureUseNotice(w.owner_name,w.revoked_at)}</p>)}
      {a.status==="released"&&<a className="inline-arrow" href={"/api/branches/"+branchId+"/derivatives/"+a.id+"/download"}>Download public summary ↗</a>}
      <p>{info.candidateOutputApprovals.filter(x=>x.artifact_id===a.id).length} candidate output approval(s) recorded.</p>
     </article>)}

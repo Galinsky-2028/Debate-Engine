@@ -58,7 +58,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Exact policy and provenance manifest
+          description: Exact policy and provenance manifest, with scope (full or partial), current or withdrawn status and endorsement history
         '409':
           description: There is no jointly accepted policy yet
 components:

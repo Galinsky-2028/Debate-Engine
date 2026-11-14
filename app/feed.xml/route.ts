@@ -2,19 +2,20 @@ import {NextRequest} from "next/server";
 import {database} from "../../lib/server/db";
 import {rssFeed} from "../../packages/domain/xml";
 import {publicBaseUrl} from "../../lib/server/public-origin";
+import {JOINT_AGREEMENT_RECORDS_SQL} from "../../lib/server/policy-agreement-sql";
+import {agreementFeedItems,type AgreementScope} from "../../packages/domain/policy-view";
 export const runtime="nodejs";export const dynamic="force-dynamic";
-type Entry={id:string;title:string;debate_id:string;originator:string;contender:string;accepted_at:string};
+type Entry={policy_version_id:string;title:string;debate_id:string;originator:string;contender:string;scope:AgreementScope;
+ currently_joint:boolean;withdrawn_at:string|null;withdrawn_by:string|null;last_joint_at:string};
 export async function GET(request:NextRequest){
  try{
-  const result=await database().query<Entry>(
-   "SELECT p.id,d.title,d.id AS debate_id,origin.public_name AS originator,responder.public_name AS contender,GREATEST(a1.signed_at,a2.signed_at) AS accepted_at FROM policy_versions p JOIN debate_branches b ON b.id=p.branch_id JOIN debates d ON d.id=b.debate_id AND d.status='published' JOIN candidacies origin ON origin.id=d.originator_candidacy_id JOIN candidacies responder ON responder.id=b.responder_candidacy_id JOIN policy_acceptances a1 ON a1.policy_version_id=p.id AND a1.candidacy_id=d.originator_candidacy_id JOIN policy_acceptances a2 ON a2.policy_version_id=p.id AND a2.candidacy_id=b.responder_candidacy_id ORDER BY GREATEST(a1.signed_at,a2.signed_at) DESC LIMIT 60"
-  );
+  // Current status comes from the latest endorsement event per candidate; withdrawn agreements stay listed as withdrawn.
+  const result=await database().query<Entry>(JOINT_AGREEMENT_RECORDS_SQL,[null]);
   const base=publicBaseUrl(request);
-  const entries=result.rows.map(r=>({id:"urn:public-debate-engine:policy:"+r.id,
-   title:"Joint policy agreement: "+r.title,
-   url:new URL("/debates/"+r.debate_id,base).toString(),
-   description:r.originator+" and "+r.contender+" accepted the same policy version. Read their full unedited debate and source materials.",
-   publishedAt:r.accepted_at}));
+  const entries=result.rows.flatMap(r=>agreementFeedItems({policyVersionId:r.policy_version_id,title:r.title,originator:r.originator,
+   contender:r.contender,scope:r.scope,currentlyJoint:r.currently_joint,withdrawnAt:r.withdrawn_at,withdrawnBy:r.withdrawn_by,lastJointAt:r.last_joint_at})
+   .map(item=>({...item,url:new URL("/debates/"+r.debate_id,base).toString()})))
+   .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)).slice(0,60);
   return new Response(rssFeed(new URL("/press",base).toString(),entries),{headers:{"content-type":"application/rss+xml; charset=utf-8","cache-control":"public,max-age=300","x-content-type-options":"nosniff"}});
  }catch{return new Response("Feed temporarily unavailable.",{status:503,headers:{"cache-control":"no-store"}});}
 }
