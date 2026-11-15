@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-15T18:55:35Z",
+  "observedAt": "2026-11-15T18:58:20Z",
   "units": [
     {
       "id": "PDE-01",
@@ -513,7 +513,8 @@
         22,
         29,
         68,
-        82
+        82,
+        96
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
@@ -583,7 +584,9 @@
       "pr": null,
       "implementation": "partial",
       "acceptance": "pending",
-      "openPullRequests": [],
+      "openPullRequests": [
+        97
+      ],
       "acceptanceNote": "Automated axe checks plus operator-set storage and render budgets that refuse new work honestly without deleting anything. Visual/mobile and WCAG/media manual acceptance, load tests and observed budget operation not performed.",
       "dependsOn": [],
       "externalDependencies": [],
@@ -646,7 +649,8 @@
       "title": "Standardize Public Debate Engine product name and repository references",
       "origin": "addition",
       "prs": [
-        87
+        87,
+        96
       ],
       "state": "implementation_merged_acceptance_pending",
       "implementation": "implemented",
@@ -870,6 +874,36 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5326027673,
+      "number": 97,
+      "title": "PDE-28: Automated WCAG A/AA checks on populated debate, embed, candidate and workspace pages",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/97",
+      "state": "open",
+      "draft": false,
+      "createdAt": "2026-11-15T18:56:34Z",
+      "updatedAt": "2026-11-15T18:56:34Z",
+      "closedAt": null,
+      "mergedAt": null,
+      "headSha": "74574ec5013903c1fef7fee3e407d5f09a3a4d79",
+      "baseRef": "main",
+      "mergeCommitSha": "e4032910891cb06ade7eca096723164dc3a578c5"
+    },
+    {
+      "id": 5326020268,
+      "number": 96,
+      "title": "PDE-25/PDE-32: AI-assisted security review, reviewed E2EESA inventory, hosted identity validation, Neon restore rehearsal",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/96",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T18:55:43Z",
+      "updatedAt": "2026-11-15T18:58:10Z",
+      "closedAt": "2026-11-15T18:58:10Z",
+      "mergedAt": "2026-11-15T18:58:10Z",
+      "headSha": "ae14a54f45188de9e64d2290a0cd9a4d70d20e90",
+      "baseRef": "main",
+      "mergeCommitSha": "fd8fdfc3f01324afa68e6fa7e2c46b118d3ae13c"
+    },
     {
       "id": 5325980069,
       "number": 95,
