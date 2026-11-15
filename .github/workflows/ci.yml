@@ -69,7 +69,7 @@ jobs:
         run: node --test tests/media.integration.mjs
 
   chromium-public:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright does not yet support Chromium on ubuntu-latest (26.04)
     timeout-minutes: 22
     services:
       postgres:
@@ -147,7 +147,7 @@ jobs:
 
   candidate-pilot:
     name: Two distinct signed-session browser candidate pilot
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright does not yet support Chromium on ubuntu-latest (26.04)
     timeout-minutes: 24
     services:
       postgres:

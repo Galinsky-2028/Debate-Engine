@@ -161,11 +161,13 @@ Tests: the signed-session browser pilot (`scripts/browser-two-candidate-pilot.mj
 
 A withdrawn candidacy cannot open debates or publish contributions (`verifiedCandidateSource` and the `publish` variant of `pde_guard_active_actor`); others may still respond to its debates; its open obligations keep their neutral labels. Withdrawal is final.
 
-**Account** (`accounts.status`: `active` → `closed`; `suspended` is refused like `closed` but no flow sets it):
+**Account** (`accounts.status`: `active` → `closed`, and `active` ⇄ `suspended` by platform administrators; `suspended` is refused like `closed`):
 
 | Transition | Actor | Preconditions | Emits | Errors | Tests |
 | --- | --- | --- | --- | --- | --- |
 | active → closed (`POST /api/account/close`) | the signed-in account holder | `{"confirmation":"CLOSE MY ACCOUNT"}`; no draft mid-confirmation | in one transaction: private drafts erased (published drafts keep only digest and provenance), remaining private reports and feedback deleted, campaign memberships and delegated roles revoked, status `closed`; audit `account_closed` (counts only) | 400; 404; 409 already closed/suspended; 409 draft confirming | `restrictions.db.integration.mjs` |
+| active → suspended (`POST /api/admin/accounts/{id}/suspend`) | a platform administrator, never on their own account | `{"confirmation":"SUSPEND THIS ACCOUNT"}`; a published restriction category; a public notice of 20–1,000 chars; optional private basis | status `suspended` and an append-only `account_suspension_events` row in one transaction (a trigger refuses an event that does not match the status, an inactive actor, or self-action); audit `account_suspended`; the notice appears on the candidate's public record. No publication is changed | 400; 403 self; 404; 409 not active or closed | `suspension.test.ts`, `suspension.db.integration.mjs` |
+| suspended → active (`POST /api/admin/accounts/{id}/reinstate`) | a platform administrator; a different one from the suspending administrator when more than one is configured | public notice of 20–1,000 chars | status `active`, `reinstated` event recording whether the decision was independent; audit `account_reinstated` | 400; 403 self or same administrator; 404; 409 not suspended or closed | `suspension.test.ts`, `suspension.db.integration.mjs` |
 | closed → anything / account deleted | nobody | — | — | `pde_guard_account_status`; every authenticated route returns 403; `pde_guard_active_actor` refuses attributed inserts | `restrictions.db.integration.mjs` |
 
 Published contributions, assessments, agreements and candidacy snapshots stay attributed and public. The Neon Auth identity is not deleted.

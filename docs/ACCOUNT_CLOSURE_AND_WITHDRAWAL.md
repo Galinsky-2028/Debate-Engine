@@ -48,7 +48,7 @@ Only the active owner account can withdraw, with body `{"confirmation":"WITHDRAW
 
 ## Honest limits
 
-- `suspended` accounts are refused the same way as closed ones. No suspension workflow exists yet.
+- `suspended` accounts are refused the same way as closed ones. Platform administrators suspend and reinstate accounts at `/workspace/admin/accounts` ([state machine](../spec/state-machine.md)): grounds are limited to the published restriction categories, every step is an append-only event with a public notice shown on the candidate's public record, nobody acts on their own account, a closed account cannot be suspended or reinstated, and with more than one configured administrator a different one must reinstate. Suspension never removes, hides or rewrites published contributions. These limits mirror the restriction process; the owner may revise the grounds or add an account-holder appeal.
 - Closure does not delete media objects that were uploaded but never published. Their storage cleanup is left to the existing upload maintenance worker.
 - Neon Auth identities are not deleted by this endpoint. The platform account is closed; deleting the sign-in identity is a separate provider action.
 - Withdrawal is final; there is no reinstatement event, and an account cannot register a second candidacy for the same election.
