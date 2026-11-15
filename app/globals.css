@@ -72,3 +72,5 @@
  .hero-copy,.interior-page,.section-pad{min-width:0}
  .hero h1,.interior-page h1{overflow-wrap:break-word}
 }
+/* WCAG AA contrast on populated debate pages (axe, candidate pilot): two-record explainer, assessments, and labels inside written publications in the qualifying player. */
+.two-record-views p{color:#56636b}.assessment p{color:#55626a}.qualifying-player .written-publication p,.featured-video .written-publication p{color:#36434c}
