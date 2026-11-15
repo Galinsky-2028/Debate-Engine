@@ -1,18 +1,309 @@
 {
   "schemaVersion": 1,
   "repository": "Galinsky-2028/Debate-Engine",
-  "classificationStatus": "unverified",
-  "coverageComplete": false,
-  "components": [],
-  "dataFlows": [],
+  "classificationStatus": "ai_assisted_review",
+  "reviewedAt": "2026-11-15",
+  "reviewNature": "Owner-authorized AI-assisted review under AGENTS.md (2026-10-13). Not an independent human review; no certification or conformance is claimed.",
+  "coverageComplete": true,
+  "components": [
+    {
+      "id": "web",
+      "name": "Next.js web application (pages, embeds, API routes)",
+      "kind": "service",
+      "sourcePaths": [
+        "app/",
+        "lib/server/",
+        "lib/auth/",
+        "packages/domain/",
+        "next.config.ts",
+        "Dockerfile"
+      ],
+      "runtime": "Render web service srv-dbp9png8v5cc73dkk830 (free plan), Node.js 22, unprivileged user",
+      "trustBoundary": "Internet-facing; same-origin check on every cookie-authenticated mutation; security headers and CSP from next.config.ts"
+    },
+    {
+      "id": "auth",
+      "name": "Neon Auth (managed Better Auth) sessions",
+      "kind": "external-service",
+      "sourcePaths": [
+        "lib/auth/",
+        "lib/server/http.ts"
+      ],
+      "runtime": "Neon Auth for project cool-dawn-42333373; Google sign-in",
+      "trustBoundary": "Third-party identity provider; the app trusts verified sessions and binds administrators to immutable subject IDs (PLATFORM_ADMIN_USER_IDS)"
+    },
+    {
+      "id": "database",
+      "name": "PostgreSQL (Neon)",
+      "kind": "datastore",
+      "sourcePaths": [
+        "packages/database/migrations/",
+        "lib/server/db.ts",
+        "scripts/migrate.mjs"
+      ],
+      "runtime": "Neon project cool-dawn-42333373, production branch br-tiny-haze-bdurpbbb",
+      "trustBoundary": "TLS connection with credentials from DATABASE_URL; append-only evidence tables and authorization re-checked by triggers"
+    },
+    {
+      "id": "object-store",
+      "name": "S3-compatible media bucket",
+      "kind": "datastore",
+      "sourcePaths": [
+        "lib/server/storage.ts",
+        "lib/server/resumable-uploads.ts",
+        "scripts/cleanup-uploads.mjs",
+        "scripts/audit-archive.mjs"
+      ],
+      "runtime": "MEDIA_BUCKET via AWS_ENDPOINT_URL_S3",
+      "trustBoundary": "Private bucket; signed URLs for owner uploads and released downloads; objects bound to SHA-256 digests"
+    },
+    {
+      "id": "laptop-scanner",
+      "name": "Operator-laptop malware scanner (ClamAV)",
+      "kind": "worker",
+      "sourcePaths": [
+        "Dockerfile.scanner",
+        "compose.scanner.yaml",
+        "packages/media/",
+        "lib/server/laptop-scanner.ts"
+      ],
+      "runtime": "Docker on the platform operator's computer; outbound only; not running unless started by the operator",
+      "trustBoundary": "Authenticated pull with a paired bearer token (timing-safe comparison); verdicts bound to lease and digest"
+    },
+    {
+      "id": "hosted-scanner",
+      "name": "Hosted ClamAV image (paid, not deployed)",
+      "kind": "worker",
+      "sourcePaths": [
+        "Dockerfile.production"
+      ],
+      "runtime": "Not deployed (billing deferred by the owner)",
+      "trustBoundary": "Same verdict contract as the laptop scanner"
+    },
+    {
+      "id": "render-worker",
+      "name": "FFmpeg summary render worker (not deployed)",
+      "kind": "worker",
+      "sourcePaths": [
+        "Dockerfile.worker",
+        "scripts/render-summary.mjs",
+        "packages/media/render.mjs"
+      ],
+      "runtime": "Not deployed; would need a paid always-on worker",
+      "trustBoundary": "Reads approved source objects, writes derivative candidates that need exact-output approval"
+    },
+    {
+      "id": "outbox",
+      "name": "Outbox delivery (email provider and signed webhooks)",
+      "kind": "module",
+      "sourcePaths": [
+        "packages/delivery/",
+        "packages/domain/outbox.ts",
+        "lib/server/destinations.ts",
+        "lib/server/outbox.ts"
+      ],
+      "runtime": "Runs in the web process after the queuing action, or from the admin button / manual GitHub workflow; no email provider or webhook destination configured",
+      "trustBoundary": "Outbound HTTPS only; DNS answers vetted against non-public ranges before connecting; HMAC-signed bodies; no redirects; size and time caps"
+    },
+    {
+      "id": "scheduler",
+      "name": "Manual GitHub Actions operations trigger",
+      "kind": "ci",
+      "sourcePaths": [
+        ".github/workflows/scheduled-operations.yml",
+        "lib/server/scheduled-operations.ts",
+        "packages/domain/github-oidc.ts"
+      ],
+      "runtime": "workflow_dispatch only",
+      "trustBoundary": "GitHub OIDC token bound to repository ID, workflow path, ref and audience; optional OPERATIONS_RUN_TOKEN"
+    },
+    {
+      "id": "assistant",
+      "name": "Optional AI assistant and transcription",
+      "kind": "external-service",
+      "sourcePaths": [
+        "lib/server/private-assessment-service.ts",
+        "lib/server/assistant-model.ts",
+        "lib/server/private-transcription.ts",
+        "lib/server/private-consent.ts",
+        "packages/domain/private-assessment.ts"
+      ],
+      "runtime": "Not configured in production (no DEBATE_ASSISTANT_* or NEON_AI_GATEWAY_* keys)",
+      "trustBoundary": "Private, consent-gated, owner-scoped; output never public"
+    },
+    {
+      "id": "public-api",
+      "name": "Read-only public API, RSS, sitemap, embeds and press kits",
+      "kind": "interface",
+      "sourcePaths": [
+        "app/api/v1/",
+        "app/feed.xml/",
+        "app/embed/",
+        "contracts/openapi.yaml",
+        "packages/sdk/"
+      ],
+      "runtime": "Part of the web service",
+      "trustBoundary": "Reads only published rows; no account IDs, emails, drafts, assistant output or verification evidence"
+    },
+    {
+      "id": "ci",
+      "name": "GitHub Actions CI, CodeQL, dependency audit and registry sync",
+      "kind": "ci",
+      "sourcePaths": [
+        ".github/workflows/"
+      ],
+      "runtime": "GitHub-hosted runners",
+      "trustBoundary": "contents: read except the registry sync; no production credentials in CI"
+    }
+  ],
+  "dataFlows": [
+    {
+      "id": "F1",
+      "from": "browser",
+      "to": "web",
+      "data": "Public pages and published records",
+      "classification": "public",
+      "protection": "HTTPS (Render TLS)",
+      "e2eeApplicable": false,
+      "rationale": "Intentionally public archive"
+    },
+    {
+      "id": "F2",
+      "from": "browser",
+      "to": "auth",
+      "data": "Sign-in credentials and session cookies",
+      "classification": "secret",
+      "protection": "HTTPS; provider-managed session; httpOnly cookies",
+      "e2eeApplicable": false,
+      "rationale": "Authentication is delegated to the identity provider"
+    },
+    {
+      "id": "F3",
+      "from": "browser",
+      "to": "web",
+      "data": "Private drafts, private assessments and assistant reports",
+      "classification": "private",
+      "protection": "HTTPS; owner-scoped SQL; separate private tables never joined by public queries",
+      "e2eeApplicable": true,
+      "rationale": "Candidate-private material; whether drafts move to local or E2EE storage is an open owner decision (security-and-E2EESA-applicability.md)"
+    },
+    {
+      "id": "F4",
+      "from": "browser",
+      "to": "object-store",
+      "data": "Original media uploads (resumable parts)",
+      "classification": "private-until-published",
+      "protection": "HTTPS; owner-scoped presigned parts; server re-hash; malware verdict before publication",
+      "e2eeApplicable": false,
+      "rationale": "Server-side scanning and public publication require plaintext"
+    },
+    {
+      "id": "F5",
+      "from": "laptop-scanner",
+      "to": "web",
+      "data": "Scan jobs, object bytes and verdicts",
+      "classification": "private-until-published",
+      "protection": "HTTPS; paired bearer token; lease- and digest-bound verdicts",
+      "e2eeApplicable": false,
+      "rationale": "The scanner must read the bytes"
+    },
+    {
+      "id": "F6",
+      "from": "web",
+      "to": "database",
+      "data": "All records, including private drafts and audit events",
+      "classification": "private",
+      "protection": "TLS; least-privilege queries; triggers re-check authorization and immutability",
+      "e2eeApplicable": false,
+      "rationale": "Server must process records; see F3 for the open E2EE decision"
+    },
+    {
+      "id": "F7",
+      "from": "web",
+      "to": "outbox",
+      "data": "Notices and invitations to verified destinations",
+      "classification": "private",
+      "protection": "HTTPS; SSRF-vetted addresses; HMAC signatures; CR/LF stripped",
+      "e2eeApplicable": false,
+      "rationale": "Delivery to third-party mailboxes and endpoints the candidate verified"
+    },
+    {
+      "id": "F8",
+      "from": "scheduler",
+      "to": "web",
+      "data": "Operations trigger",
+      "classification": "control",
+      "protection": "GitHub OIDC with repository, workflow, ref and audience pinning; forced key refresh throttled",
+      "e2eeApplicable": false,
+      "rationale": "Machine-to-machine trigger with no payload"
+    },
+    {
+      "id": "F9",
+      "from": "web",
+      "to": "assistant",
+      "data": "Consented private media or text for analysis",
+      "classification": "private",
+      "protection": "Not configured; consent and owner scoping when enabled",
+      "e2eeApplicable": true,
+      "rationale": "Only with explicit consent; provider choice would need review"
+    },
+    {
+      "id": "F10",
+      "from": "public-api",
+      "to": "third parties",
+      "data": "Published debates, feeds, embeds, press kits",
+      "classification": "public",
+      "protection": "HTTPS; read-only; restriction notices respected",
+      "e2eeApplicable": false,
+      "rationale": "Intentionally public"
+    }
+  ],
   "sourceObservations": [
     {
       "path": "README.md",
-      "blobSha": "9486efbd49397c8be6b7675928c44f926706ffbb"
+      "blobSha": "174d2d4dfea0a88181cf209e055ac547069801af"
+    },
+    {
+      "path": "docs/architecture.md",
+      "blobSha": "42b720be925bcf28ca326c338c653bf5d8974dad"
+    },
+    {
+      "path": "docs/security-and-E2EESA-applicability.md",
+      "blobSha": "acab20b87850a6842a4fd6bf0ab0b9a9da7f0814"
+    },
+    {
+      "path": "next.config.ts",
+      "blobSha": "92aff185801a29b52bf4b9c19e5b0f5afc5475a2"
+    },
+    {
+      "path": "lib/server/http.ts",
+      "blobSha": "09c0fdff60fdb987cbf6f5f6d2f9407794fda400"
+    },
+    {
+      "path": "packages/domain/outbox.ts",
+      "blobSha": "e23e5458c737b626980a10e9ebb976327d1b9069"
+    },
+    {
+      "path": "packages/delivery/webhook.ts",
+      "blobSha": "dbb3932d15e63ad616662da8e5664a5679be0a8c"
+    },
+    {
+      "path": "lib/server/scheduled-operations.ts",
+      "blobSha": "bedf4092555724231066015532775f652ecb73fb"
+    },
+    {
+      "path": "lib/server/laptop-scanner.ts",
+      "blobSha": "df7146182cfceee2282915cf4f9556eaaa1011ff"
+    },
+    {
+      "path": "packages/database/migrations/0035_account_suspension.sql",
+      "blobSha": "aaeddc9f371fdc00bb4cdd30aa14333418a44eae"
     }
   ],
   "limitations": [
-    "This is a discovery placeholder, not a complete E2EESA component inventory or a claim that no protected flows exist.",
-    "Use the pinned upstream 0.2 component-inventory and scoped-assessment contracts for actual assessment."
+    "The inventory and its review are AI-assisted, not an independent expert review; external review remains pending follow-up.",
+    "Coverage is of this repository's source, build and deployment configuration; the internals of Neon, Render, the identity provider and any future email or AI provider are out of scope.",
+    "Two flows (F3 private drafts and F9 assistant analysis) are candidates for end-to-end encryption; the owner has not decided whether drafts move to local or E2EE storage.",
+    "Workers marked not deployed (hosted scanner, render worker) were reviewed in source only."
   ]
 }

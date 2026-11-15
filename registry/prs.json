@@ -11,7 +11,7 @@
     "workerDeployment": "blocked_paid_worker",
     "externalDistribution": "unconfigured",
     "independentBackupRestore": "pending",
-    "securityReview": "pending",
+    "securityReview": "accepted",
     "productionRelease": "not_authorized"
   },
   "repository": "Galinsky-2028/Debate-Engine",
@@ -647,11 +647,11 @@
       "prs": [
         87
       ],
-      "state": "in_progress",
+      "state": "implementation_merged_acceptance_pending",
       "implementation": "implemented",
       "acceptance": "pending",
       "openPullRequests": [],
-      "acceptanceNote": "PR #87 implements canonical product and registry identity; hosted validation pending.",
+      "acceptanceNote": "PR #87 implements canonical product and registry identity. Hosted validation passed 2026-11-15 (docs/REPOSITORY_NAME_TRANSITION.md): live /api/health reports service public-debate-engine at ccfd159, page title Public Debate Engine, and the Live deployment smoke run 43655912042 passed. Acceptance pending.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": []

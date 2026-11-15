@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {generateKeyPairSync,sign} from "node:crypto";
-import {verifyGithubOidc,OidcRejected,GITHUB_OIDC_ISSUER} from "../packages/domain/github-oidc.ts";
+import {verifyGithubOidc,OidcRejected,GITHUB_OIDC_ISSUER,jwksFetchNeeded,JWKS_CACHE_MS,JWKS_FORCED_REFRESH_MIN_MS} from "../packages/domain/github-oidc.ts";
 const {privateKey,publicKey}=generateKeyPairSync("rsa",{modulusLength:2048});
 const other=generateKeyPairSync("rsa",{modulusLength:2048});
 const keys=[{...publicKey.export({format:"jwk"}),kid:"k1"}];
@@ -32,4 +32,13 @@ test("rejects forged, foreign, stale or mis-scoped tokens",()=>{
  for(const [token,label] of bad)assert.throws(()=>verifyGithubOidc(token,keys,now,expect),OidcRejected,label);
  const [h,,s]=jwt(good).split(".");
  assert.throws(()=>verifyGithubOidc(h+"."+enc({...good,repository_id:"1"})+"."+s,keys,now,expect),OidcRejected,"tampered payload");
+});
+
+test("an unknown key forces at most one GitHub key fetch a minute",()=>{
+ const t=1_000_000;
+ assert.equal(jwksFetchNeeded(null,t,false),true);
+ assert.equal(jwksFetchNeeded(t,t+1000,false),false);
+ assert.equal(jwksFetchNeeded(t,t+JWKS_CACHE_MS,false),true);
+ assert.equal(jwksFetchNeeded(t,t+1000,true),false); // repeated bogus key ids cannot hammer GitHub
+ assert.equal(jwksFetchNeeded(t,t+JWKS_FORCED_REFRESH_MIN_MS,true),true);
 });

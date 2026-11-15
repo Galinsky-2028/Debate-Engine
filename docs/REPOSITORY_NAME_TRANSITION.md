@@ -16,6 +16,17 @@ The repository **slug** is still `Debate-Engine`. Renaming the slug to `Public-D
 - `security/e2eesa-status.json` and `security/e2eesa-inventory.json` name `Galinsky-2028/Debate-Engine`. The upstream standard they pin, `neophilism/End-To-End-Everywhere-Security-Architecture-Standard`, is a different repository and is unchanged.
 - Engine Room and Boardroom must reconcile the repository by immutable GitHub identity and canonical registry evidence, not by owner name.
 
+## Hosted validation (2026-11-15)
+
+These checks ran against the live service, read-only:
+
+- `GET https://public-debate-engine.onrender.com/api/health` returned `{"status":"ok","service":"public-debate-engine","version":"ccfd15970061ed70360a826824b9d64d1c5e1833"}`, the `main` commit of PR #94. The next `main` commit only syncs `registry/prs.json`.
+- The home page title is `Public Debate Engine`. `/api/ready` reported the database connected and the archive configured.
+- The **Live deployment smoke** workflow passed on that commit ([run 43655912042](https://github.com/Galinsky-2028/Debate-Engine/actions/runs/43655912042)). It runs `scripts/smoke-preview.mjs` against the live origin and checks that unauthorized mutations are refused.
+- The registry workflow, CI and the E2EESA status check run under `Galinsky-2028/Debate-Engine` and passed.
+
+PDE-32 is implemented and its hosted validation is recorded. Its acceptance stays pending.
+
 ## If the owner later renames the slug
 
 1. Rename in GitHub Settings → General → Repository name.
