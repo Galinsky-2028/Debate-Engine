@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-15T18:58:20Z",
+  "observedAt": "2026-11-15T19:23:25Z",
   "units": [
     {
       "id": "PDE-01",
@@ -578,15 +578,14 @@
         72,
         74,
         81,
-        84
+        84,
+        97
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
       "implementation": "partial",
       "acceptance": "pending",
-      "openPullRequests": [
-        97
-      ],
+      "openPullRequests": [],
       "acceptanceNote": "Automated axe checks plus operator-set storage and render budgets that refuse new work honestly without deleting anything. Visual/mobile and WCAG/media manual acceptance, load tests and observed budget operation not performed.",
       "dependsOn": [],
       "externalDependencies": [],
@@ -879,15 +878,15 @@
       "number": 97,
       "title": "PDE-28: Automated WCAG A/AA checks on populated debate, embed, candidate and workspace pages",
       "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/97",
-      "state": "open",
+      "state": "closed",
       "draft": false,
       "createdAt": "2026-11-15T18:56:34Z",
-      "updatedAt": "2026-11-15T18:56:34Z",
-      "closedAt": null,
-      "mergedAt": null,
-      "headSha": "74574ec5013903c1fef7fee3e407d5f09a3a4d79",
+      "updatedAt": "2026-11-15T19:23:17Z",
+      "closedAt": "2026-11-15T19:23:16Z",
+      "mergedAt": "2026-11-15T19:23:16Z",
+      "headSha": "cbb3d821f43c80d212417691258c9f220a0acea0",
       "baseRef": "main",
-      "mergeCommitSha": "e4032910891cb06ade7eca096723164dc3a578c5"
+      "mergeCommitSha": "241e8349823a8eec0a8ca6d13505e216d3df6803"
     },
     {
       "id": 5326020268,
