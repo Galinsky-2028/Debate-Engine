@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-14T23:59:22Z",
+  "observedAt": "2026-11-15T18:55:35Z",
   "units": [
     {
       "id": "PDE-01",
@@ -536,7 +536,8 @@
         67,
         77,
         80,
-        83
+        83,
+        95
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
@@ -869,6 +870,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5325980069,
+      "number": 95,
+      "title": "PDE-26: Account suspension and reinstatement by platform administrators",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/95",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-15T18:51:00Z",
+      "updatedAt": "2026-11-15T18:55:26Z",
+      "closedAt": "2026-11-15T18:55:26Z",
+      "mergedAt": "2026-11-15T18:55:25Z",
+      "headSha": "255ce2ba5deaa44541bf3c43d837677b2e865519",
+      "baseRef": "main",
+      "mergeCommitSha": "daa9669534f7bcd12503a0524991832fe6ab2b2c"
+    },
     {
       "id": 5317574629,
       "number": 94,
