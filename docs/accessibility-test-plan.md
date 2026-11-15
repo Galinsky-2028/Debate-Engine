@@ -7,11 +7,12 @@ Target: WCAG 2.2 Level AA for public reading and watching and for every candidat
 | Check | Where | Scope |
 | --- | --- | --- |
 | axe-core WCAG 2.0/2.1/2.2 A and AA rules | `scripts/browser-acceptance.mjs`, job `chromium-public` | `/`, `/debates`, `/candidates`, `/protocol`, `/sign-in`, at 1365 px and 375 px ([BROWSER_ACCEPTANCE.md](BROWSER_ACCEPTANCE.md)) |
+| axe-core WCAG 2.0/2.1/2.2 A and AA rules on populated pages | `scripts/browser-two-candidate-pilot.mjs`, job `candidate-pilot` | a debate with three published contributions (`/debates/{id}`), its embed (`/embed/debates/{id}`), a candidate's public record (`/candidates/{id}`) and the signed-in `/workspace`, at 1365 px and 375 px, with fictional CI data |
 | keyboard focus reaches navigation; no horizontal overflow at 375/390 px | same | public pages |
 | two signed-in candidates complete a reciprocal debate in Chromium | `scripts/browser-two-candidate-pilot.mjs`, job `candidate-pilot` | workspace, composer, assessment, debate page ([TWO_CANDIDATE_BROWSER_PILOT.md](TWO_CANDIDATE_BROWSER_PILOT.md)) |
 | caption parsing rejects markup and invalid times | `tests/captions.test.ts` | WebVTT import |
 
-Gaps to add: axe on a populated debate page, embed, workspace pages and error states.
+Gaps to add: axe on error states and on the remaining workspace sub-pages (composer, admin pages).
 
 ## Manual matrix (required for acceptance)
 

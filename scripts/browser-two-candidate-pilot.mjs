@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import {createHmac,randomUUID} from "node:crypto";
 import {chromium} from "playwright";
+import AxeBuilder from "@axe-core/playwright";
 const origin=process.env.PDE_BROWSER_URL;
 if(process.env.GITHUB_ACTIONS!=="true"||process.env.PDE_CI_PILOT_RUN!=="true"||
    origin!=="https://127.0.0.1:3443"||
@@ -228,9 +229,29 @@ try{
  assert.match(await publicPage.locator("main").innerText(),/preserves all historical source versions/i);
  const archive=await request(anonymous,"GET","/api/debates?q=Synthetic%20source%20accountability%20policy");
  assert.ok(archive.debates.some(d=>d.id===debateId));
+ // Automated WCAG 2.0/2.1/2.2 A and AA rules on POPULATED pages: a debate with three published contributions,
+ // its embed, a candidate's public record and the signed-in workspace, at desktop and mobile widths.
+ // These do not replace manual testing by users of assistive technology.
+ const wcagTags=["wcag2a","wcag2aa","wcag21a","wcag21aa","wcag22a","wcag22aa"];
+ const accessibilityFailures=[];
+ for(const [ctx,path] of [[anonymous,"/debates/"+debateId],[anonymous,"/embed/debates/"+debateId],
+  [anonymous,"/candidates/"+candidateA],[a,"/workspace"]]){
+  const checked=await pageAt(ctx,path);
+  for(const width of [1365,375]){
+   await checked.setViewportSize({width,height:860});
+   await checked.waitForLoadState("networkidle",{timeout:15000}).catch(()=>{});
+   const result=await new AxeBuilder({page:checked}).withTags(wcagTags).analyze();
+   for(const violation of result.violations){
+    const targets=violation.nodes.map(node=>node.target.join(" ")).slice(0,7).join(", ");
+    accessibilityFailures.push(path.replace(/[0-9a-f-]{36}/g,"{id}")+" / "+width+"px: "+violation.id+" ["+violation.impact+"] "+targets+" :: "+violation.help);
+   }
+  }
+  await checked.close();
+ }
+ assert.deepEqual(accessibilityFailures,[],"Automated WCAG A/AA violations on populated pages:\n"+accessibilityFailures.join("\n"));
  console.log(JSON.stringify({result:"PASS",mode:"isolated_signed_session_fixture_not_real_neon_auth",
   distinctCandidateSessions:2,independentReviewerSession:true,verifiedFixtureCandidacies:2,
-  publishedSubmissions:3,assessments:2,qualifyingSubmissions:3,
+  publishedSubmissions:3,assessments:2,qualifyingSubmissions:3,populatedPagesAxeClean:4,
   attributedCorrections:1,privateDraftCrossAccountDenied:true,
   unauthenticatedDenied:true,reviewerOnlyVerification:true,privateBeforePublish:true,
   noRealCandidateData:true,noProductionDatabase:true}));
