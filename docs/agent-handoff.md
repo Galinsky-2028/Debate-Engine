@@ -29,7 +29,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 
 **What remains:**
 
-- Operational acceptance: every gate in `registry/production-acceptance.json` is pending; `npm run release:check` exits 2.
+- Operational acceptance: `securityReview` is recorded on AI-assisted evidence (not independent); the other six gates in `registry/production-acceptance.json` are pending; `npm run release:check` exits 2.
 - Real candidate onboarding: verification standard, real accounts and the candidate's confirmation before any opening, invitation or position.
 - No email provider (`EMAIL_API_URL`/`EMAIL_API_KEY`/`EMAIL_FROM`) and no webhook destinations are configured, so notices and invitations stay "Queued — not sent".
 - Nothing runs on a schedule (owner decision 2026-11-14). Deliveries run right after the action that queued them; deadline jobs and anything left pending run when a platform administrator presses Run pending jobs now on `/workspace/admin/operations` or starts the manual GitHub workflow (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
@@ -40,7 +40,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 ## Next unblocked tasks
 
 1. Add axe checks for a populated debate page, embed and workspace pages ([accessibility-test-plan.md](accessibility-test-plan.md)).
-2. Complete and review `security/e2eesa-inventory.json`, then record a dated AI-assisted `securityReview` entry with evidence. Do not claim external review.
+2. Done 2026-11-15: `security/e2eesa-inventory.json` completed and AI-assisted reviewed; `securityReview` recorded on [SECURITY_REVIEW_2026-11-15.md](SECURITY_REVIEW_2026-11-15.md) under ADR 0008. Next: assess the 19 E2EESA controls against the inventory. Do not claim external review.
 3. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
 
 ## Blocked on the owner

@@ -29,3 +29,12 @@ export function verifyGithubOidc(token:string,keys:readonly GithubJwk[],nowSecon
  if(!expect.events.includes(String(claims.event_name)))throw new OidcRejected("Wrong triggering event.");
  return claims;
 }
+
+/** Key-set cache policy. A token naming an unknown key may force one refresh, but at most once a minute, so
+ * unauthenticated callers cannot turn the endpoint into a stream of requests to GitHub. */
+export const JWKS_CACHE_MS=10*60*1000,JWKS_FORCED_REFRESH_MIN_MS=60*1000;
+export function jwksFetchNeeded(fetchedAt:number|null,now:number,force:boolean){
+ if(fetchedAt===null)return true;
+ const age=now-fetchedAt;
+ return force?age>=JWKS_FORCED_REFRESH_MIN_MS:age>=JWKS_CACHE_MS;
+}

@@ -39,10 +39,10 @@
     },
     {
       "id": "securityReview",
-      "status": "pending",
-      "reviewer": null,
-      "reviewedAt": null,
-      "evidenceUrl": null
+      "status": "accepted",
+      "reviewer": "AI-assisted source and adversarial-test review under the owner policy of 2026-10-13 (not an independent human review)",
+      "reviewedAt": "2026-11-15T19:30:00Z",
+      "evidenceUrl": "https://github.com/Galinsky-2028/Debate-Engine/blob/main/docs/SECURITY_REVIEW_2026-11-15.md"
     },
     {
       "id": "productionRelease",
