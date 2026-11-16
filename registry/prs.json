@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-16T19:45:28Z",
+  "observedAt": "2026-11-16T19:50:20Z",
   "units": [
     {
       "id": "PDE-01",
@@ -515,7 +515,8 @@
         29,
         68,
         82,
-        96
+        96,
+        100
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
@@ -875,6 +876,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5343900136,
+      "number": 100,
+      "title": "PDE-25: Assess the 19 E2EESA controls; fix supply-chain and vulnerability-intake findings",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/100",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-16T19:47:35Z",
+      "updatedAt": "2026-11-16T19:49:51Z",
+      "closedAt": "2026-11-16T19:49:51Z",
+      "mergedAt": "2026-11-16T19:49:51Z",
+      "headSha": "9a619cf571050fe977d09b3fcf76f8d242b6a0b2",
+      "baseRef": "main",
+      "mergeCommitSha": "a245c78224ec87afb1640e1d8b0a118a35a9feef"
+    },
     {
       "id": 5343749151,
       "number": 99,
