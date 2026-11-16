@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Resolve exact production dependency lock for this ephemeral audit
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install exactly the committed lockfile (fails if package.json and the lock disagree)
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Refuse high or critical runtime dependency advisories
         run: npm audit --omit=dev --audit-level=high
