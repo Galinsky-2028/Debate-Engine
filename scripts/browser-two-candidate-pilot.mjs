@@ -248,10 +248,46 @@ try{
   }
   await checked.close();
  }
+ // Administrator pages, candidate workspace sub-pages, not-found pages and a form error state.
+ async function axeOn(checked,label){
+  for(const width of [1365,375]){
+   await checked.setViewportSize({width,height:860});
+   await checked.waitForLoadState("networkidle",{timeout:15000}).catch(()=>{});
+   const result=await new AxeBuilder({page:checked}).withTags(wcagTags).analyze();
+   for(const violation of result.violations){
+    const targets=violation.nodes.map(node=>node.target.join(" ")).slice(0,7).join(", ");
+    accessibilityFailures.push(label+" / "+width+"px: "+violation.id+" ["+violation.impact+"] "+targets+" :: "+violation.help);
+   }
+  }
+ }
+ for(const [ctx,path] of [[admin,"/workspace"],[admin,"/workspace/admin/operations"],[admin,"/workspace/admin/obligations"],
+  [admin,"/workspace/admin/restrictions"],[admin,"/workspace/admin/accounts"],[admin,"/workspace/admin/elections"],[admin,"/workspace/scanner"],
+  [a,"/workspace/new"],[a,"/workspace/account"],[b,"/debates/"+debateId+"/respond"]]){
+  const checked=await pageAt(ctx,path);
+  await axeOn(checked,path.replace(/[0-9a-f-]{36}/g,"{id}"));
+  await checked.close();
+ }
+ for(const path of ["/debates/"+randomUUID(),"/candidates/"+randomUUID(),"/no-such-page"]){
+  const checked=await anonymous.newPage();
+  const response=await checked.goto(origin+path,{waitUntil:"domcontentloaded",timeout:30000});
+  assert.equal(response?.status(),404,path+" must be a real 404");
+  await axeOn(checked,"404 "+path.replace(/[0-9a-f-]{36}/g,"{id}"));
+  await checked.close();
+ }
+ {
+  const checked=await pageAt(admin,"/workspace/admin/accounts");
+  await checked.getByLabel("Account ID").fill(randomUUID());
+  await checked.getByLabel(/Public notice/).fill("Fictional notice used only to render the form error state in CI.");
+  await checked.getByLabel(/to confirm/).fill("SUSPEND THIS ACCOUNT");
+  await checked.getByRole("button",{name:/Suspend account/}).click();
+  await checked.getByRole("status").filter({hasText:/not found/i}).waitFor({timeout:15000});
+  await axeOn(checked,"form error /workspace/admin/accounts");
+  await checked.close();
+ }
  assert.deepEqual(accessibilityFailures,[],"Automated WCAG A/AA violations on populated pages:\n"+accessibilityFailures.join("\n"));
  console.log(JSON.stringify({result:"PASS",mode:"isolated_signed_session_fixture_not_real_neon_auth",
   distinctCandidateSessions:2,independentReviewerSession:true,verifiedFixtureCandidacies:2,
-  publishedSubmissions:3,assessments:2,qualifyingSubmissions:3,populatedPagesAxeClean:4,
+  publishedSubmissions:3,assessments:2,qualifyingSubmissions:3,populatedPagesAxeClean:4,adminWorkspaceErrorPagesAxeClean:14,
   attributedCorrections:1,privateDraftCrossAccountDenied:true,
   unauthenticatedDenied:true,reviewerOnlyVerification:true,privateBeforePublish:true,
   noRealCandidateData:true,noProductionDatabase:true}));

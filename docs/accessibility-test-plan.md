@@ -11,8 +11,9 @@ Target: WCAG 2.2 Level AA for public reading and watching and for every candidat
 | keyboard focus reaches navigation; no horizontal overflow at 375/390 px | same | public pages |
 | two signed-in candidates complete a reciprocal debate in Chromium | `scripts/browser-two-candidate-pilot.mjs`, job `candidate-pilot` | workspace, composer, assessment, debate page ([TWO_CANDIDATE_BROWSER_PILOT.md](TWO_CANDIDATE_BROWSER_PILOT.md)) |
 | caption parsing rejects markup and invalid times | `tests/captions.test.ts` | WebVTT import |
+| axe-core WCAG A/AA on administrator, workspace and error pages | `scripts/browser-two-candidate-pilot.mjs` | `/workspace` (administrator), `/workspace/admin/{operations,obligations,restrictions,accounts,elections}`, `/workspace/scanner`, the composer `/workspace/new`, `/workspace/account`, the responder's `/debates/{id}/respond`, three real 404 pages and a rendered form error on `/workspace/admin/accounts`, at 1365 px and 375 px |
 
-Gaps to add: axe on error states and on the remaining workspace sub-pages (composer, admin pages).
+Gaps to add: manual screen-reader and mobile Safari passes (see below).
 
 ## Manual matrix (required for acceptance)
 
