@@ -50,7 +50,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 6,
-  "observedAt": "2026-11-15T19:23:25Z",
+  "observedAt": "2026-11-16T19:45:28Z",
   "units": [
     {
       "id": "PDE-01",
@@ -193,7 +193,8 @@
         29,
         30,
         71,
-        78
+        78,
+        98
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
@@ -579,7 +580,8 @@
         74,
         81,
         84,
-        97
+        97,
+        99
       ],
       "state": "implementation_partially_merged_operational_acceptance_pending",
       "pr": null,
@@ -873,6 +875,36 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5343749151,
+      "number": 99,
+      "title": "PDE-28: Automated WCAG checks on administrator, workspace and error pages",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/99",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-16T19:37:20Z",
+      "updatedAt": "2026-11-16T19:45:04Z",
+      "closedAt": "2026-11-16T19:45:04Z",
+      "mergedAt": "2026-11-16T19:45:04Z",
+      "headSha": "79c5635f6588e8ac37655419b676cdf5c7dbe8c5",
+      "baseRef": "main",
+      "mergeCommitSha": "28465708007bd467e2c7b0c6661b8c18bd3dcf12"
+    },
+    {
+      "id": 5343736934,
+      "number": 98,
+      "title": "PDE-08: Playback encodes on the operator-laptop worker",
+      "url": "https://github.com/Galinsky-2028/Debate-Engine/pull/98",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-16T19:36:34Z",
+      "updatedAt": "2026-11-16T19:44:48Z",
+      "closedAt": "2026-11-16T19:44:48Z",
+      "mergedAt": "2026-11-16T19:44:48Z",
+      "headSha": "dcce3c6e428b92b2a37dae2d36e851421c7f76b5",
+      "baseRef": "main",
+      "mergeCommitSha": "b5472af1e7ad4d14627f86aa1e3c62730cc019e1"
+    },
     {
       "id": 5326027673,
       "number": 97,
