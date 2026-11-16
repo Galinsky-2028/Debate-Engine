@@ -1,5 +1,6 @@
 import "server-only";
 import { S3Client,GetObjectCommand,PutObjectCommand } from "@aws-sdk/client-s3";
+import { createHash } from "node:crypto";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { HttpError } from "./http";
 
@@ -22,4 +23,24 @@ export async function storeOriginal(key:string,bytes:Buffer,contentType:string){
 export async function playOriginal(key:string){
  const {client,bucket}=objectStorage();
  return getSignedUrl(client,new GetObjectCommand({Bucket:bucket,Key:key,ResponseContentDisposition:"inline"}),{expiresIn:300});
+}
+
+/** A short-lived signed upload for the operator-laptop encoder. The server re-hashes the object before accepting it. */
+export async function presignUpload(key:string,contentType:string){
+ const {client,bucket}=objectStorage();
+ return getSignedUrl(client,new PutObjectCommand({Bucket:bucket,Key:key,ContentType:contentType,CacheControl:"private, no-store"}),{expiresIn:30*60});
+}
+/** Stream a stored object and return its SHA-256 and size, refusing anything larger than maxBytes. */
+export async function hashStoredObject(key:string,maxBytes:number){
+ const {client,bucket}=objectStorage();
+ let result;
+ try{result=await client.send(new GetObjectCommand({Bucket:bucket,Key:key}));}
+ catch{throw new HttpError(409,"The uploaded rendition was not found in storage.");}
+ const hash=createHash("sha256");let size=0;
+ for await(const chunk of result.Body as AsyncIterable<Uint8Array>){
+  size+=chunk.length;
+  if(size>maxBytes)throw new HttpError(413,"The uploaded rendition exceeds the size limit.");
+  hash.update(chunk);
+ }
+ return {sha256:hash.digest("hex"),size};
 }

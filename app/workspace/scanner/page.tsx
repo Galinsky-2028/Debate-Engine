@@ -8,7 +8,7 @@ export default function ScannerSetup(){
   void refresh();const timer=setInterval(refresh,10000);return()=>clearInterval(timer);
  },[]);
  return <div className="interior-page"><p className="eyebrow dark">PLATFORM ADMINISTRATION</p><h1>Your laptop.<br/><em>Your scanner.</em></h1>
-  <p className="interior-lead">Run the trusted safety worker on a Mac, Windows, or Linux computer. It checks uploaded originals without a paid hosting service. Keep it running while accepting uploads.</p>
+  <p className="interior-lead">Run the trusted safety worker on a Mac, Windows, or Linux computer. It checks uploaded originals without a paid hosting service and, when idle, makes lighter playback renditions of published videos. Keep it running while accepting uploads.</p>
   <p role="status">{online?'● ':''}{message}</p>
   <ol>
    <li>Install <a href="https://docs.docker.com/get-started/get-docker/" target="_blank" rel="noreferrer">Docker Desktop or Docker Engine</a> and start it.</li>

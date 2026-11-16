@@ -74,3 +74,4 @@
 }
 /* WCAG AA contrast on populated debate pages (axe, candidate pilot): two-record explainer, assessments, and labels inside written publications in the qualifying player. */
 .two-record-views p{color:#56636b}.assessment p{color:#55626a}.qualifying-player .written-publication p,.featured-video .written-publication p{color:#36434c}
+.original-file-link{font-size:12px;margin:8px 0 0}.original-file-link a{text-decoration:underline;text-underline-offset:3px}

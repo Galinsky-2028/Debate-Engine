@@ -22,6 +22,10 @@ Allow 2 GB RAM. The first signature download may take several minutes; a Docker 
 
 The operator worker is separate from each candidate's local browser preparation. It is a trusted platform component, not an ordinary uploader-controlled safety assertion. Running that component on a laptop avoids a paid always-on scanner but makes upload availability depend on the operator's computer. A future fully hosted deployment removes that dependency.
 
+## Playback encodes
+
+The same worker image includes FFmpeg and, when idle, encodes lighter playback renditions of published originals. Safety scans always take priority. See [PLAYBACK_ENCODES.md](PLAYBACK_ENCODES.md).
+
 ## Fully hosted mode retained
 
 `Dockerfile.production` runs Next.js, a local ClamAV scanner under a separate Unix identity, an official-signature updater, and a supervisor. It requires a suitably sized paid host; the tested scanner uses approximately 1 GB RSS before web traffic. Keep `PDE_SCANNER_MODE` unset for this topology. Startup fails if official signatures cannot be loaded; scanner/updater exit terminates the instance. No fixture signatures are accepted. Paid hosting requires explicit cost authorization.

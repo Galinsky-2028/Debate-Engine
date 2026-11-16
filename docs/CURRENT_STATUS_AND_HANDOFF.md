@@ -11,7 +11,7 @@
 3. No email provider and no webhook destinations are configured; notices and invitations stay queued and are shown as not sent.
 4. Nothing runs on a schedule (owner decision 2026-11-14). Deliveries run right after the action that queued them; deadline jobs and anything left pending run when a platform administrator presses Run pending jobs now on `/workspace/admin/operations` or starts the manual GitHub workflow (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
 5. External human security review is deferred follow-up under the AGENTS.md owner policy; the November 14 and 15 reviews are AI-assisted, not independent.
-6. Not implemented: playback encodes. (Account suspension and reinstatement are implemented: [ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md).)
+6. Playback encodes are produced by the operator-laptop worker ([PLAYBACK_ENCODES.md](PLAYBACK_ENCODES.md)); the original stays the public record. (Account suspension and reinstatement are implemented: [ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md).)
 7. The unfinished requirement beginning "When a candidate uploads a video…" remains unresolved; no rule has been inferred.
 
 ## History
