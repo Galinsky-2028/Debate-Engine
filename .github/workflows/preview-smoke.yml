@@ -14,7 +14,7 @@ jobs:
       # Render deploys from main are started manually, so a push run checks the release that is live at that moment.
       PDE_PREVIEW_URL: https://public-debate-engine.onrender.com
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
