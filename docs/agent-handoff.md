@@ -19,7 +19,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 
 ## Current state (2026-11-14)
 
-- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, 37 migration files from `0001` to `0035` (there is no `0030`; `0003`, `0010` and `0013` each have two files).
+- Source: Next.js 16.4.6, React 19.2.0, Node.js 22, `pg` 8, 38 migration files from `0001` to `0036` (there is no `0030`; `0003`, `0010` and `0013` each have two files).
 - Live: https://public-debate-engine.onrender.com (free Render web service, manual deploys from `main`, self-migrating container; `/api/health` reports the deployed commit). Neon project `cool-dawn-42333373`.
 - Uploads and supporting documents need the operator-laptop scanner running.
 - No real candidate debate, position, invitation or agreement has been published by the platform. Fixtures are fictional and test-only.
@@ -34,7 +34,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 - No email provider (`EMAIL_API_URL`/`EMAIL_API_KEY`/`EMAIL_FROM`) and no webhook destinations are configured, so notices and invitations stay "Queued — not sent".
 - Nothing runs on a schedule (owner decision 2026-11-14). Deliveries run right after the action that queued them; deadline jobs and anything left pending run when a platform administrator presses Run pending jobs now on `/workspace/admin/operations` or starts the manual GitHub workflow (see `docs/OPERATIONS_AND_COST_CONTROLS.md`).
 - External human security review is deferred follow-up under the AGENTS.md policy; it is not a release blocker and must not be claimed.
-- Not implemented: playback encodes. (Account suspension and reinstatement by platform administrators ([ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md)), obligations superseded by a recorded agreement, `distribute` grants and durable invitation response clocks are implemented: [DEADLINES_AND_NOTIFICATIONS.md](DEADLINES_AND_NOTIFICATIONS.md), [DERIVATIVE_RIGHTS.md](DERIVATIVE_RIGHTS.md), [INVITATIONS.md](INVITATIONS.md).)
+- Playback encodes run on the operator-laptop worker ([PLAYBACK_ENCODES.md](PLAYBACK_ENCODES.md)). (Account suspension and reinstatement by platform administrators ([ACCOUNT_CLOSURE_AND_WITHDRAWAL.md](ACCOUNT_CLOSURE_AND_WITHDRAWAL.md)), obligations superseded by a recorded agreement, `distribute` grants and durable invitation response clocks are implemented: [DEADLINES_AND_NOTIFICATIONS.md](DEADLINES_AND_NOTIFICATIONS.md), [DERIVATIVE_RIGHTS.md](DERIVATIVE_RIGHTS.md), [INVITATIONS.md](INVITATIONS.md).)
 - The unfinished requirement "When a candidate uploads a video…" (below).
 
 ## Next unblocked tasks
