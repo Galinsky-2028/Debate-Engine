@@ -40,7 +40,7 @@ Start here if you are a new developer or agent. Nothing below depends on memory 
 ## Next unblocked tasks
 
 1. Done: axe on populated, administrator, workspace and error pages (candidate pilot). Remaining: manual assistive-technology and mobile Safari testing ([accessibility-test-plan.md](accessibility-test-plan.md)).
-2. Done 2026-11-15: `security/e2eesa-inventory.json` completed and AI-assisted reviewed; `securityReview` recorded on [SECURITY_REVIEW_2026-11-15.md](SECURITY_REVIEW_2026-11-15.md) under ADR 0008. Next: assess the 19 E2EESA controls against the inventory. Do not claim external review.
+2. Done 2026-11-15: `security/e2eesa-inventory.json` completed and AI-assisted reviewed; `securityReview` recorded on [SECURITY_REVIEW_2026-11-15.md](SECURITY_REVIEW_2026-11-15.md) under ADR 0008. The 19 controls were assessed on 2026-11-16 ([E2EESA_CONTROL_ASSESSMENT.md](E2EESA_CONTROL_ASSESSMENT.md)); five are partial pending owner settings or independent review. Do not claim external review.
 3. Decide (owner) whether private drafts stay server-side or move to local/E2EE storage ([security-and-E2EESA-applicability.md](security-and-E2EESA-applicability.md)).
 
 ## Blocked on the owner

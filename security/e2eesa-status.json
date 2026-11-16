@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "Galinsky-2028/Debate-Engine",
-  "updatedAt": "2026-11-15T19:30:00.000Z",
+  "updatedAt": "2026-11-16T12:00:00.000Z",
   "standard": {
     "repository": "neophilism/End-To-End-Everywhere-Security-Architecture-Standard",
     "commit": "8441335f359c6e446f9bfe8b959f9606ce341409",
@@ -18,10 +18,205 @@
   },
   "implementation": {
     "complete": false,
-    "controls": [],
-    "evidence": [],
+    "controls": [
+      {
+        "id": "SD-REQUIREMENTS",
+        "state": "implemented",
+        "evidence": [
+          "docs/DEVELOPMENT_PLAN.md",
+          "spec/permission-and-consent-model.md",
+          "spec/archive-and-restriction-policy.md",
+          "docs/security-and-E2EESA-applicability.md"
+        ],
+        "note": "Authorization, consent, immutability, privacy and restriction rules are normative in spec/ and the plan."
+      },
+      {
+        "id": "SD-OWNERS",
+        "state": "partial",
+        "evidence": [
+          "AGENTS.md",
+          "SECURITY.md",
+          "docs/decisions/0008-ai-assisted-security-review.md"
+        ],
+        "note": "The owner policy and the AI-assisted review role are recorded and SECURITY.md defines intake. No named human security owner or CODEOWNERS file exists; naming one is an owner decision."
+      },
+      {
+        "id": "SD-TOOLS",
+        "state": "implemented",
+        "evidence": [
+          ".github/workflows/security-source.yml",
+          ".github/workflows/ci.yml",
+          "docs/SECURITY_STATIC_ANALYSIS.md"
+        ],
+        "note": "CodeQL security-extended, npm audit (high), adversarial unit/DB tests, live ClamAV and browser axe runs in CI."
+      },
+      {
+        "id": "SD-RELEASE-GATES",
+        "state": "implemented",
+        "evidence": [
+          "packages/domain/release-gates.mjs",
+          "registry/production-acceptance.json",
+          "tests/release-gates.test.mjs"
+        ],
+        "note": "Seven operational gates; release:check exits non-zero until all are accepted with dated evidence."
+      },
+      {
+        "id": "SD-ENVIRONMENT",
+        "state": "implemented",
+        "evidence": [
+          "docs/INFRASTRUCTURE.md",
+          "docs/deployment-runbook.md",
+          "AGENTS.md"
+        ],
+        "note": "Production and development Neon branches are separate; CI uses disposable databases only; production secrets live only in Render."
+      },
+      {
+        "id": "SD-SOURCE-ACCESS",
+        "state": "partial",
+        "evidence": [
+          "docs/REPOSITORY_NAME_TRANSITION.md",
+          ".github/workflows/pr-registry.yml"
+        ],
+        "note": "Workflows run least-privilege (contents: read except the registry sync). Branch protection on main is not configured; enabling it is a repository-settings decision for the owner."
+      },
+      {
+        "id": "SD-RELEASE-AUTH",
+        "state": "implemented",
+        "evidence": [
+          "docs/deployment-runbook.md",
+          "app/api/health/route.ts"
+        ],
+        "note": "Render auto-deploy is off; deploys are explicit from main and /api/health reports the exact deployed commit."
+      },
+      {
+        "id": "SD-ARCHIVE",
+        "state": "implemented",
+        "evidence": [
+          "scripts/audit-archive.mjs",
+          "docs/ARCHIVE_AUDIT.md",
+          "docs/backup-and-restore.md"
+        ],
+        "note": "Originals are digest-bound and re-hashed by the archive audit; evidence tables are append-only."
+      },
+      {
+        "id": "SD-DESIGN",
+        "state": "implemented",
+        "evidence": [
+          "docs/architecture.md",
+          "docs/decisions/0002-raw-sql-append-only-triggers.md",
+          "docs/decisions/0005-operator-laptop-scanner.md",
+          "security/e2eesa-inventory.json"
+        ],
+        "note": "SQL-proven actors, append-only triggers, digest-bound media, outbound SSRF controls, reviewed component/data-flow inventory."
+      },
+      {
+        "id": "SD-DESIGN-REVIEW",
+        "state": "partial",
+        "evidence": [
+          "docs/SECURITY_REVIEW_2026-11-14.md",
+          "docs/SECURITY_REVIEW_2026-11-15.md",
+          "security/e2eesa-inventory.json"
+        ],
+        "note": "AI-assisted design reviews are recorded; independent human design review remains pending follow-up (not a blocker under AGENTS.md)."
+      },
+      {
+        "id": "SD-DEPENDENCIES",
+        "state": "implemented",
+        "evidence": [
+          "package-lock.json",
+          ".github/dependabot.yml",
+          ".github/workflows/security-source.yml"
+        ],
+        "note": "Fixed in this assessment: the audit now runs on exactly the committed lockfile (npm ci) instead of re-resolving it; CI and the render worker install with npm ci; Dependabot proposes npm, Actions and base-image updates weekly."
+      },
+      {
+        "id": "SD-SECURE-CODE",
+        "state": "implemented",
+        "evidence": [
+          "lib/server/http.ts",
+          "packages/domain/request-origin.ts",
+          "packages/domain/outbox.ts",
+          "tests/hardening.test.ts"
+        ],
+        "note": "Parameterized SQL, same-origin checks, bounded bodies, sanitized headers, constant-time token comparison."
+      },
+      {
+        "id": "SD-BUILD-CONFIG",
+        "state": "partial",
+        "evidence": [
+          "Dockerfile",
+          "Dockerfile.worker",
+          "Dockerfile.scanner",
+          ".github/workflows/ci.yml",
+          "next.config.ts"
+        ],
+        "note": "Fixed in this assessment: lockfile-exact installs everywhere. Containers run as the unprivileged node user. Remaining: base images and Actions are pinned by version tag, not digest; Dependabot keeps them current."
+      },
+      {
+        "id": "SD-CODE-REVIEW",
+        "state": "partial",
+        "evidence": [
+          ".github/workflows/ci.yml",
+          "AGENTS.md"
+        ],
+        "note": "Every change goes through a pull request with the full CI and AI-assisted review; required human review is not configured (owner policy allows merging without it)."
+      },
+      {
+        "id": "SD-TESTING",
+        "state": "implemented",
+        "evidence": [
+          "tests/hardening.test.ts",
+          "tests/restrictions.db.integration.mjs",
+          "tests/suspension.db.integration.mjs",
+          "tests/playback-encode.test.ts",
+          "scripts/browser-two-candidate-pilot.mjs"
+        ],
+        "note": "Adversarial authorization, immutability, SSRF, malware and privacy cases on real PostgreSQL and Chromium in CI."
+      },
+      {
+        "id": "SD-DEFAULTS",
+        "state": "implemented",
+        "evidence": [
+          "next.config.ts",
+          "lib/server/public-origin.ts",
+          "packages/domain/outbox.ts"
+        ],
+        "note": "CSP and frame denial by default; fail-closed public origin in production; loopback webhooks only outside production; uploads blocked without a scanner."
+      },
+      {
+        "id": "SD-INTAKE",
+        "state": "implemented",
+        "evidence": [
+          "SECURITY.md"
+        ],
+        "note": "Fixed in this assessment: SECURITY.md defines private reporting, response targets and scope. Enabling GitHub private vulnerability reporting is a repository setting for the owner."
+      },
+      {
+        "id": "SD-REMEDIATION",
+        "state": "implemented",
+        "evidence": [
+          "SECURITY.md",
+          "docs/SECURITY_REVIEW_2026-11-14.md",
+          "docs/SECURITY_REVIEW_2026-11-15.md"
+        ],
+        "note": "Findings are fixed with tests in the review PRs; SECURITY.md sets response targets."
+      },
+      {
+        "id": "SD-ROOT-CAUSE",
+        "state": "implemented",
+        "evidence": [
+          "SECURITY.md",
+          "docs/SECURITY_REVIEW_2026-11-15.md"
+        ],
+        "note": "SECURITY.md requires a root-cause note and sibling search for every confirmed vulnerability."
+      }
+    ],
+    "evidence": [
+      "docs/E2EESA_CONTROL_ASSESSMENT.md",
+      "security/e2eesa-inventory.json"
+    ],
     "pending": [
-      "Assess the 19 secure-development controls against the reviewed inventory and bind each to source evidence.",
+      "Close or owner-accept the 5 partial controls listed in docs/E2EESA_CONTROL_ASSESSMENT.md (branch protection, private vulnerability reporting, named security owner, digest pinning, independent design review).",
       "Owner decision on F3 (private drafts server-side vs local/E2EE storage) and F9 (assistant provider)."
     ]
   },
@@ -44,6 +239,8 @@
     ]
   },
   "existingSecurityEvidence": [
+    "SECURITY.md",
+    "docs/E2EESA_CONTROL_ASSESSMENT.md",
     "docs/ORIGIN_SECURITY.md",
     "docs/SECURITY_REVIEW_2026-11-14.md",
     "docs/SECURITY_REVIEW_2026-11-15.md"
